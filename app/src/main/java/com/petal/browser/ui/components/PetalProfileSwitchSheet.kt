@@ -1,0 +1,454 @@
+/*
+ * PetalProfileSwitchSheet.kt
+ * ─────────────────────────────────────────────────────────────────────────
+ * Material 3 Expressive profile switcher bottom sheet (Issue #23).
+ * Allows users to easily switch between profiles (Personal, Work, School, etc.),
+ * view avatar status, edit names/colors, or add new profiles.
+ *
+ * Copyright (c) 2026 Petal Browser
+ */
+
+package com.petal.browser.ui.components
+
+import com.petal.browser.ui.theme.ExpressiveButtonShape
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import com.petal.browser.ui.kit.TextField
+import com.petal.browser.ui.kit.IconButton
+import com.petal.browser.ui.kit.FilledTonalButton
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import com.petal.browser.account.PetalUserProfileManager
+import com.petal.browser.account.PetalUserProfile
+import com.petal.browser.account.PetalAvatarCropSheet
+import com.petal.browser.haptics.PetalHapticEngine
+import com.petal.browser.profile.PetalProfile
+import com.petal.browser.profile.PetalProfileAvatar
+import com.petal.browser.profile.PetalProfileManager
+import com.petal.browser.ui.containment.isLiquidGlassEnabled
+import com.petal.browser.ui.containment.liquidGlassChrome
+import com.petal.browser.ui.containment.petalGroupSurfaceColor
+import androidx.compose.ui.res.stringResource
+import com.petal.browser.R
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PetalProfileSwitchSheet(
+    onDismissRequest: () -> Unit,
+    onOpenAccountSettings: () -> Unit,
+    onSelectProfile: (String) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val active = PetalProfileManager.activeProfile
+    val profiles = PetalProfileManager.profiles
+
+    var isCreatingNew by remember { mutableStateOf(false) }
+    var newProfileName by remember { mutableStateOf("") }
+    var selectedColorHex by remember { mutableStateOf("#4285F4") }
+    var selectedAvatarPreset by remember { mutableStateOf("petal_flower") }
+
+    // Custom profile picture state for the create form (Issue #23 avatar wiring).
+    var pendingCropImageUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingCustomAvatarUri by remember { mutableStateOf<String?>(null) }
+    var pendingAvatarTargetProfileId by remember { mutableStateOf<String?>(null) }
+
+    val avatarPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            pendingCropImageUri = uri
+        }
+    }
+
+    val presetColors = listOf(
+        "#4285F4" to "Google Blue",
+        "#34A853" to "Emerald Green",
+        "#FBBC05" to "Amber Gold",
+        "#EA4335" to "Crimson Red",
+        "#9C27B0" to "Violet Purple",
+        "#00BCD4" to "Oceanic Cyan",
+        "#24292E" to "Dark Slate",
+        "#FF5722" to "Vibrant Orange"
+    )
+
+    com.petal.browser.ui.containment.PetalSheet(
+        onDismissRequest = onDismissRequest,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = stringResource(R.string.ui_profiles),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp),
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.ui_switch_or_create_browsing_profiles),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        onDismissRequest()
+                        onOpenAccountSettings()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ManageAccounts,
+                        contentDescription = stringResource(R.string.ui_manage_account),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            if (!isCreatingNew) {
+                // Profile List with Stacked Tonal Blocks (18dp outer, 6dp inner, 4dp gap)
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    itemsIndexed(profiles, key = { _, it -> it.id }) { index, profile ->
+                        val isSelected = profile.id == active.id
+                        val profileColor = profile.getComposeColor()
+                        val isGlass = isLiquidGlassEnabled("sp_liquid_glass_containments")
+                        val profileShape = com.petal.browser.ui.containment.petalStackedBlockShape(index, profiles.size)
+
+                        Surface(
+                            shape = profileShape,
+                            color = when {
+                                isSelected && isGlass -> profileColor.copy(alpha = 0.22f)
+                                isSelected -> MaterialTheme.colorScheme.secondaryContainer
+                                isGlass -> petalGroupSurfaceColor()
+                                else -> MaterialTheme.colorScheme.surfaceContainerHighest
+                            },
+                            border = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(if (isGlass) Modifier.liquidGlassChrome(profileShape, enabled = true) else Modifier)
+                                .clickable {
+                                    PetalHapticEngine.getInstance(context).play(PetalHapticEngine.Pattern.CLICK, 0.5f)
+                                    onDismissRequest()
+                                    onSelectProfile(profile.id)
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Profile color ring & indicator
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clickable {
+                                            pendingAvatarTargetProfileId = profile.id
+                                            avatarPickerLauncher.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                            )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    PetalProfileAvatar(
+                                        profile = profile,
+                                        size = 42.dp,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .size(18.dp)
+                                            .clip(ExpressiveButtonShape)
+                                            .background(MaterialTheme.colorScheme.primary),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.PhotoCamera,
+                                            contentDescription = stringResource(R.string.ui_change_profile_picture),
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.width(14.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = profile.name,
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (profile.isDefault) "Default Profile" else "Custom Profile",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = stringResource(R.string.ui_active),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                } else if (!profile.isDefault) {
+                                    IconButton(
+                                        onClick = {
+                                            PetalHapticEngine.getInstance(context).play(PetalHapticEngine.Pattern.CLICK, 0.4f)
+                                            PetalProfileManager.deleteProfile(context, profile.id)
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.DeleteOutline,
+                                            contentDescription = stringResource(R.string.ui_delete),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Add Profile Button
+                com.petal.browser.ui.containment.PetalSheetPill(
+                    text = stringResource(R.string.ui_add_new_profile),
+                    icon = Icons.Rounded.Add,
+                    tone = com.petal.browser.ui.containment.PetalSheetTone.Primary,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        isCreatingNew = true
+                        newProfileName = "Profile ${profiles.size + 1}"
+                        pendingCropImageUri = null
+                        pendingCustomAvatarUri = null
+                        pendingAvatarTargetProfileId = null
+                    }
+                )
+            } else {
+                // Create New Profile Form
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Tappable circular avatar area — opens the system photo picker.
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(ExpressiveButtonShape)
+                                .background(Color(android.graphics.Color.parseColor(selectedColorHex)).copy(alpha = 0.2f))
+                                .clickable {
+                                    PetalHapticEngine.getInstance(context).play(PetalHapticEngine.Pattern.CLICK, 0.4f)
+                                    avatarPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (pendingCustomAvatarUri != null) {
+                                AsyncImage(
+                                    model = pendingCustomAvatarUri,
+                                    contentDescription = stringResource(R.string.ui_profile_picture),
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .clip(ExpressiveButtonShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Person,
+                                    contentDescription = stringResource(R.string.ui_profile_picture),
+                                    tint = Color(android.graphics.Color.parseColor(selectedColorHex)),
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+
+                            // Camera badge to signal the avatar is tappable.
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(24.dp)
+                                    .clip(ExpressiveButtonShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PhotoCamera,
+                                    contentDescription = stringResource(R.string.ui_change_profile_picture),
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    TextField(
+                        value = newProfileName,
+                        onValueChange = { newProfileName = it },
+                        label = { Text(stringResource(R.string.ui_profile_name)) },
+                        placeholder = { Text(stringResource(R.string.ui_e_g_work_school_research)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        )
+                    )
+
+                    Text(
+                        text = stringResource(R.string.ui_accent_color),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        presetColors.take(6).forEach { (hex, _) ->
+                            val color = Color(android.graphics.Color.parseColor(hex))
+                            val isColorSelected = selectedColorHex.equals(hex, ignoreCase = true)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(ExpressiveButtonShape)
+                                    .background(color)
+                                    .clickable { selectedColorHex = hex },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isColorSelected) {
+                                    Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    com.petal.browser.ui.containment.PetalActionRow(
+                        confirmText = stringResource(R.string.ui_create),
+                        onConfirm = {
+                            if (newProfileName.isNotBlank()) {
+                                val newProfile = PetalProfileManager.createProfile(
+                                    context = context,
+                                    name = newProfileName,
+                                    colorHex = selectedColorHex,
+                                    avatarPresetId = selectedAvatarPreset
+                                )
+                                val avatarUri = pendingCustomAvatarUri
+                                if (avatarUri != null) {
+                                    PetalProfileManager.updateProfile(
+                                        context,
+                                        newProfile.copy(customAvatarUri = avatarUri)
+                                    )
+                                }
+                                isCreatingNew = false
+                                pendingCropImageUri = null
+                                pendingCustomAvatarUri = null
+                                onDismissRequest()
+                            }
+                        },
+                        dismissText = stringResource(R.string.ui_cancel),
+                        onDismiss = {
+                            isCreatingNew = false
+                            pendingCropImageUri = null
+                            pendingCustomAvatarUri = null
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    // Avatar crop sheet — opened after a photo is picked from the create-profile form.
+    val cropImageUri = pendingCropImageUri
+    if (cropImageUri != null) {
+        PetalAvatarCropSheet(
+            imageUri = cropImageUri,
+            onDismiss = { pendingCropImageUri = null },
+            onAvatarCropped = { pendingCropImageUri = null },
+            onSaveBitmap = { bitmap ->
+                val targetProfileId = pendingAvatarTargetProfileId
+                if (targetProfileId == PetalProfile.DEFAULT_PROFILE.id) {
+                    PetalUserProfileManager.saveCroppedAvatar(context, bitmap)
+                } else {
+                    val avatarUri = savePetalProfileAvatarBitmap(context, bitmap)
+                    if (targetProfileId != null) {
+                        val target = PetalProfileManager.profiles.firstOrNull { it.id == targetProfileId }
+                        if (target != null) PetalProfileManager.updateProfile(context, target.copy(customAvatarUri = avatarUri))
+                    } else {
+                        pendingCustomAvatarUri = avatarUri
+                    }
+                }
+                pendingAvatarTargetProfileId = null
+            }
+        )
+    }
+}
+
+/**
+ * Persists a cropped profile-picture bitmap to local app storage and returns its file URI
+ * string, suitable for [PetalProfile.customAvatarUri]. Each save gets a unique filename so
+ * picking a new photo for one profile never clobbers another profile's saved avatar.
+ */
+private fun savePetalProfileAvatarBitmap(context: android.content.Context, bitmap: android.graphics.Bitmap): String {
+    val file = java.io.File(context.filesDir, "petal_profile_avatar_${System.currentTimeMillis()}.png")
+    java.io.FileOutputStream(file).use { out ->
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+    }
+    return Uri.fromFile(file).toString()
+}

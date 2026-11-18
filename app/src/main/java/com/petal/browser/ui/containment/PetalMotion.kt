@@ -1,0 +1,65 @@
+package com.petal.browser.ui.containment
+
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+
+object PetalMotion {
+    /** Live "Motion Duration Scale" (set by the theme). 2.0 = twice as slow, 0.5 = twice as fast. */
+    @Volatile
+    var timeScale: Float = 1f
+
+    private val s: Float get() = timeScale.coerceIn(0.25f, 3f)
+    private fun st(stiffness: Float) = stiffness / (s * s)
+
+    const val Quick = 160
+    const val Standard = 300
+    const val Emphasized = 440
+
+    fun <T> spatialFast() = spring<T>(dampingRatio = 0.5f, stiffness = st(Spring.StiffnessMediumLow))
+    fun <T> spatialDefault() = spring<T>(dampingRatio = 0.65f, stiffness = st(Spring.StiffnessLow))
+    fun <T> spatialSlow() = spring<T>(dampingRatio = 0.7f, stiffness = st(Spring.StiffnessVeryLow))
+    fun <T> effectsFast() = spring<T>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = st(Spring.StiffnessMedium))
+    fun <T> effectsDefault() = spring<T>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = st(Spring.StiffnessLow))
+    fun <T> effectsSlow() = spring<T>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = st(Spring.StiffnessVeryLow))
+
+    fun forwardEnter(): EnterTransition = fadeIn(effectsDefault()) + slideInHorizontally(spatialDefault()) { it / 10 } + scaleIn(spatialFast(), initialScale = 0.96f)
+    fun forwardExit(): ExitTransition = fadeOut(effectsFast()) + scaleOut(effectsDefault(), targetScale = 0.985f)
+    fun backEnter(): EnterTransition = fadeIn(effectsDefault()) + slideInHorizontally(spatialDefault()) { -it / 12 } + scaleIn(spatialFast(), initialScale = 0.96f)
+    fun backExit(): ExitTransition = fadeOut(effectsFast()) + slideOutHorizontally(spatialDefault()) { it / 12 } + scaleOut(effectsDefault(), targetScale = 0.985f)
+
+    fun quickTween() = tween<Float>((Quick * s).toInt(), easing = FastOutSlowInEasing)
+    fun standardTween() = tween<Float>((Standard * s).toInt(), easing = FastOutSlowInEasing)
+    fun emphasizedTween() = tween<Float>((Emphasized * s).toInt(), easing = FastOutSlowInEasing)
+}
+
+@Composable
+fun Modifier.petalPressScale(interactionSource: MutableInteractionSource, targetScale: Float = 0.97f): Modifier {
+    val scale = com.petal.browser.ui.components.rememberPetalPressScale(interactionSource, targetScale)
+    return scale(scale)
+}
+
+@Composable
+fun Modifier.petalBounceClickable(enabled: Boolean = true, targetScale: Float = 0.97f, onClick: () -> Unit): Modifier {
+    val source = remember { MutableInteractionSource() }
+    return petalPressScale(source, targetScale).clickable(source, ripple(), enabled, onClick = onClick)
+}

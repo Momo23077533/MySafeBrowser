@@ -1,0 +1,1794 @@
+/*
+ * PetalDownloadManagerScreen.kt
+ * ─────────────────────────────────────────────────────────────────────────
+ * Native Inbuilt Download Manager UI for Petal Browser featuring Chrome-style
+ * grouped downloads, sticky date headers, file type avatars, 2-line title/subtitle
+ * columns, overflow dropdown menus, and Material 3 Expressive UI components.
+ */
+
+package com.petal.browser.compose.downloads
+
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.petal.browser.ui.theme.ExpressiveButtonShape
+import com.petal.browser.ui.components.scrollMotionBlur
+import com.petal.browser.ui.components.PetalExpressiveScrollBar
+import com.petal.browser.ui.components.extractFastScrollGlyph
+import com.petal.browser.ui.theme.layout.petalFlingBehavior
+
+import com.petal.browser.view.PetalToast;
+import android.os.Environment
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.graphics.BitmapFactory
+import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import com.petal.browser.ui.containment.PetalSheetHeader
+import com.petal.browser.ui.containment.PetalSheetPill
+import com.petal.browser.ui.containment.PetalSheetActionRow
+import com.petal.browser.ui.containment.PetalSheetTone
+import com.petal.browser.ui.containment.petalSheetSurface
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import com.petal.browser.ui.kit.TextField
+import com.petal.browser.ui.kit.IconButton
+import com.petal.browser.ui.kit.TextButton
+import com.petal.browser.ui.kit.Button
+import com.petal.browser.ui.components.entrance
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import com.petal.browser.ui.components.PetalSpring
+import com.petal.browser.ui.components.PetalContainerSource
+import com.petal.browser.ui.components.PetalSwipeAction
+import com.petal.browser.ui.components.PetalSwipeRow
+import com.petal.browser.ui.containment.petalGroupShape
+import com.petal.browser.ui.components.ExpressiveHeader
+import com.petal.browser.ui.components.HeaderActionIcon
+import com.petal.browser.ui.containment.PetalSnackbarHost
+import com.petal.browser.ui.components.PetalCircularWavyProgressIndicator
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.petal.browser.ui.components.M3ExpressiveVariableBackground
+import com.petal.browser.ui.containment.PetalGroupListRow
+import com.petal.browser.ui.theme.PetalMaterialShapes
+import com.petal.browser.ui.containment.PetalGroupPosition
+import com.petal.browser.ui.containment.petalGroupPositionFor
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.CircularWavyProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
+import com.petal.browser.ui.theme.PetalExpressiveTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.math.cos
+import kotlin.math.sin
+import androidx.compose.ui.res.stringResource
+import com.petal.browser.R
+import com.petal.browser.download.PetalBatteryOptimization
+
+@Immutable
+data class DownloadItem(
+    val id: Long,
+    val fileName: String,
+    val fileUrl: String,
+    val progress: Float?,
+    val status: Int,
+    val bytesDownloaded: Long,
+    val totalSize: Long,
+    val speedBytesPerSec: Long = 0L,
+    val etaSeconds: Long = 0L,
+    val localUri: String?,
+    val timestampMs: Long = System.currentTimeMillis(),
+    /** Parallel HTTP connections currently serving this download (1 = ordinary single stream). */
+    val connections: Int = 1,
+    /** Authoritative stable UUID or identifier from the unified download repository. */
+    val downloadId: String = "",
+    /** Which subsystem produced this row (browser core, yt-dlp, updater, page data, ...). */
+    val source: com.petal.browser.download.DownloadSource = com.petal.browser.download.DownloadSource.HTTP_MOZILLA,
+    /** Short human-readable reason for a FAILED row (null when unknown or not failed). */
+    val failureReason: String? = null
+)
+
+object PetalDownloadBridge {
+    @JvmStatic
+    fun createDownloadView(activity: androidx.activity.ComponentActivity, onBackPress: () -> Unit): ComposeView {
+        val rootView = activity.findViewById<android.view.View>(android.R.id.content) ?: activity.window.decorView
+        com.petal.browser.predictive.PetalContentSnapshot.capture(rootView)
+        return ComposeView(activity).apply {
+            setViewTreeLifecycleOwner(activity)
+            setViewTreeViewModelStoreOwner(activity)
+            setViewTreeSavedStateRegistryOwner(activity)
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                val snapshotBitmap = remember { com.petal.browser.predictive.PetalContentSnapshot.current?.asImageBitmap() }
+                DisposableEffect(Unit) {
+                    onDispose {
+                        com.petal.browser.predictive.PetalContentSnapshot.clear()
+                    }
+                }
+                val sp = androidx.preference.PreferenceManager.getDefaultSharedPreferences(activity)
+                val fontName = sp.getString("sp_app_font", "GS_FLEX") ?: "GS_FLEX"
+                val styleName = sp.getString("sp_color_style", "TONAL_SPOT") ?: "TONAL_SPOT"
+                val paletteId = sp.getString("sp_palette_id", com.petal.browser.ui.theme.defaultPaletteId) ?: com.petal.browser.ui.theme.defaultPaletteId
+                val dynamicColor = sp.getBoolean("useDynamicColor", com.petal.browser.ui.theme.isDynamicColorSupported)
+                val isAmoled = sp.getBoolean("sp_amoled", false)
+
+                val appFont = remember(fontName) {
+                    com.petal.browser.ui.theme.AppFont.fromName(fontName)
+                }
+                val colorStyle = remember(styleName) {
+                    try { com.petal.browser.ui.theme.ColorStyle.valueOf(styleName) } catch (e: Exception) { com.petal.browser.ui.theme.ColorStyle.TONAL_SPOT }
+                }
+
+                PetalExpressiveTheme(
+                    dynamicColor = dynamicColor,
+                    useAmoled = isAmoled,
+                    appFont = appFont,
+                    colorStyle = colorStyle,
+                    paletteId = paletteId
+                ) {
+                    PetalDownloadManagerScreen(backgroundSnapshot = snapshotBitmap, onBackPress = onBackPress)
+                }
+            }
+        }
+    }
+}
+
+fun formatBytes(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB")
+    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt().coerceIn(0, 3)
+    return String.format(Locale.US, "%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+}
+
+fun formatSpeed(bytesPerSec: Long): String {
+    if (bytesPerSec <= 0) return "0 KB/s"
+    return "${formatBytes(bytesPerSec)}/s"
+}
+
+fun formatEta(seconds: Long): String {
+    if (seconds <= 0) return "--"
+    val hours = seconds / 3600
+    val mins = (seconds % 3600) / 60
+    val secs = seconds % 60
+    return when {
+        hours > 0 -> "${hours}h ${mins}m"
+        mins > 0 -> "${mins}m ${secs}s"
+        else -> "${secs}s"
+    }
+}
+
+fun extractDomain(url: String): String {
+    if (url.isEmpty()) return ""
+    return try {
+        val uri = Uri.parse(url)
+        val host = uri.host
+        if (!host.isNullOrEmpty()) {
+            if (host.startsWith("www.")) host.substring(4) else host
+        } else url
+    } catch (e: Exception) {
+        url
+    }
+}
+
+enum class DownloadSortOption(val label: String) {
+    DATE_DESC("Date (Newest first)"),
+    DATE_ASC("Date (Oldest first)"),
+    NAME_ASC("File Name (A to Z)"),
+    NAME_DESC("File Name (Z to A)"),
+    SIZE_DESC("File Size (Largest first)"),
+    SIZE_ASC("File Size (Smallest first)"),
+    STATUS("Download Status")
+}
+
+fun formatDownloadTime(timestampMs: Long, includeDate: Boolean = false): String {
+    if (timestampMs <= 0) return ""
+    val pattern = if (includeDate) "d MMM yyyy, h:mm a" else "h:mm a"
+    val sdf = SimpleDateFormat(pattern, Locale.getDefault())
+    return sdf.format(Date(timestampMs))
+}
+
+fun formatDateHeader(timestampMs: Long): String {
+    if (timestampMs <= 0) return "Downloads"
+    val calItem = Calendar.getInstance().apply { timeInMillis = timestampMs }
+    val calToday = Calendar.getInstance()
+    val calYesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+
+    val dateFormatFull = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+    val formattedDate = dateFormatFull.format(calItem.time)
+
+    return when {
+        isSameDay(calItem, calToday) -> "Today - $formattedDate"
+        isSameDay(calItem, calYesterday) -> "Yesterday"
+        else -> formattedDate
+    }
+}
+
+private fun isSameDay(c1: Calendar, c2: Calendar): Boolean {
+    return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
+           c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
+}
+
+fun getFileTypeIcon(fileName: String): ImageVector {
+    val ext = fileName.substringAfterLast('.', "").lowercase()
+    return when (ext) {
+        "jpg", "jpeg", "png", "webp", "gif", "svg", "bmp", "ico", "heic" -> Icons.Rounded.Image
+        "mp4", "mkv", "webm", "avi", "mov", "flv", "3gp", "m4v" -> Icons.Rounded.MovieFilter
+        "mp3", "wav", "aac", "flac", "ogg", "m4a", "opus" -> Icons.Rounded.GraphicEq
+        "apk", "xapk", "apks" -> Icons.Rounded.Android
+        "pdf" -> Icons.Rounded.PictureAsPdf
+        "doc", "docx", "txt", "rtf", "odt" -> Icons.Rounded.Article
+        "zip", "tar", "gz", "rar", "7z", "bz2", "xz" -> Icons.Rounded.FolderZip
+        "html", "htm", "xml", "json", "js", "css", "py", "kt", "java", "c", "cpp", "sh" -> Icons.Rounded.Code
+        "ttf", "otf", "woff", "woff2" -> Icons.Rounded.FontDownload
+        else -> Icons.Rounded.InsertDriveFile
+    }
+}
+
+@Composable
+fun getFileTypeContainerColors(fileName: String, isSelected: Boolean): Pair<Color, Color> {
+    if (isSelected) {
+        return Pair(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+    }
+    val ext = fileName.substringAfterLast('.', "").lowercase()
+    val scheme = MaterialTheme.colorScheme
+    return when (ext) {
+        "jpg", "jpeg", "png", "webp", "gif", "svg", "bmp", "ico", "heic" -> 
+            Pair(scheme.secondaryContainer, scheme.onSecondaryContainer)
+        "mp4", "mkv", "webm", "avi", "mov", "flv", "3gp", "m4v" -> 
+            Pair(scheme.tertiaryContainer, scheme.onTertiaryContainer)
+        "mp3", "wav", "aac", "flac", "ogg", "m4a", "opus" -> 
+            Pair(scheme.primaryContainer, scheme.onPrimaryContainer)
+        "apk", "xapk", "apks" -> 
+            Pair(scheme.tertiaryFixed, scheme.onTertiaryFixed)
+        "pdf" -> 
+            Pair(scheme.errorContainer, scheme.onErrorContainer)
+        "doc", "docx", "txt", "rtf", "odt" -> 
+            Pair(scheme.surfaceContainerHighest, scheme.onSurfaceVariant)
+        "zip", "tar", "gz", "rar", "7z", "bz2", "xz" -> 
+            Pair(scheme.secondaryFixed, scheme.onSecondaryFixed)
+        "html", "htm", "xml", "json", "js", "css", "py", "kt", "java", "c", "cpp", "sh" -> 
+            Pair(scheme.primaryFixed, scheme.onPrimaryFixed)
+        else -> 
+            Pair(scheme.surfaceContainerHigh, scheme.onSurfaceVariant)
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun PetalDownloadManagerScreen(
+    backgroundSnapshot: androidx.compose.ui.graphics.ImageBitmap? = null,
+    onBackPress: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val sharedPreferences = remember(context) { androidx.preference.PreferenceManager.getDefaultSharedPreferences(context) }
+    var autoPreviewDownloadedImages by remember {
+        mutableStateOf(sharedPreferences.getBoolean("sp_auto_preview_downloaded_images", true))
+    }
+    DisposableEffect(sharedPreferences) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "sp_auto_preview_downloaded_images") {
+                autoPreviewDownloadedImages = sharedPreferences.getBoolean("sp_auto_preview_downloaded_images", true)
+            }
+        }
+        sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+
+    val hostActivity = context as? Activity
+    var showNotificationPermissionDialog by remember { mutableStateOf(false) }
+
+    // ── Background-download protection (battery optimization) ───────────────────────────────
+    // Doze and vendor battery managers freeze or kill apps once the screen locks, even with a
+    // foreground service running. Ask for the exemption the first time this page opens, and on
+    // every later app session for as long as it is still not granted. It never stacks on top of
+    // the notification prompt: it waits until that one is resolved.
+    var showBatteryDialog by remember { mutableStateOf(false) }
+    var batteryExempt by remember { mutableStateOf(PetalBatteryOptimization.isExempt(context)) }
+    var notificationCheckDone by remember { mutableStateOf(false) }
+    fun maybePromptBattery() {
+        if (com.petal.browser.BuildConfig.IS_PLAY_STORE_BUILD) return
+        if (notificationCheckDone && !showNotificationPermissionDialog && !showBatteryDialog &&
+            PetalBatteryOptimization.shouldPrompt(context)
+        ) {
+            PetalBatteryOptimization.markPrompted()
+            showBatteryDialog = true
+        }
+    }
+    LaunchedEffect(Unit) {
+        val permissionMissing = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        val notificationsDisabled = !NotificationManagerCompat.from(context).areNotificationsEnabled()
+        showNotificationPermissionDialog = permissionMissing || notificationsDisabled
+        notificationCheckDone = true
+        maybePromptBattery()
+    }
+    // Returning from a system screen (notification permission, battery settings) re-checks state.
+    DisposableEffect(context) {
+        val owner = context as? androidx.lifecycle.LifecycleOwner
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                batteryExempt = PetalBatteryOptimization.isExempt(context)
+                maybePromptBattery()
+            }
+        }
+        owner?.lifecycle?.addObserver(observer)
+        onDispose { owner?.lifecycle?.removeObserver(observer) }
+    }
+    if (showBatteryDialog) {
+        com.petal.browser.ui.containment.PetalMaterialAlertDialog(
+            onDismissRequest = { showBatteryDialog = false },
+            icon = { Icon(Icons.Rounded.BatteryAlert, contentDescription = null) },
+            title = { Text(stringResource(R.string.ui_keep_downloads_running)) },
+            text = {
+                Text(stringResource(R.string.ui_keep_downloads_desc))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBatteryDialog = false
+                    PetalBatteryOptimization.requestExemption(context)
+                }) { Text(stringResource(R.string.ui_grant_permission)) }
+            },
+            dismissButton = { TextButton(onClick = { showBatteryDialog = false }) { Text(stringResource(R.string.ui_not_now)) } }
+        )
+    }
+    if (showNotificationPermissionDialog) {
+        com.petal.browser.ui.containment.PetalMaterialAlertDialog(
+            onDismissRequest = { showNotificationPermissionDialog = false; maybePromptBattery() },
+            icon = { Icon(Icons.Rounded.NotificationsActive, contentDescription = null) },
+            title = { Text(stringResource(R.string.ui_enable_download_tracking)) },
+            text = { Text(stringResource(R.string.ui_allow_notifications_to_see_live)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNotificationPermissionDialog = false
+                    if (hostActivity != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        ActivityCompat.requestPermissions(hostActivity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4102)
+                    } else {
+                        try { context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)) } catch (_: Exception) {}
+                    }
+                }) { Text(stringResource(R.string.ui_allow_notifications)) }
+            },
+            dismissButton = { TextButton(onClick = { showNotificationPermissionDialog = false; maybePromptBattery() }) { Text(stringResource(R.string.ui_not_now)) } }
+        )
+    }
+    // PetalFetchDownloadBridge merges every engine (Mozilla's download service for browser/media
+    // downloads and the updater, plus yt-dlp and page-data rows) into one live list, so this screen updates
+    // instantly on progress/pause/resume/completion without polling the system DownloadManager.
+    var isLoading by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        PetalFetchDownloadBridge.ensureInitialized(context)
+        PetalFetchDownloadBridge.refresh(context)
+    }
+    val rawDownloadList by PetalFetchDownloadBridge.downloadItems.collectAsStateWithLifecycle()
+    var pendingDeletedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var pendingDeleteItems by remember { mutableStateOf<List<DownloadItem>>(emptyList()) }
+    val rowBounds = remember { mutableMapOf<Long, androidx.compose.ui.geometry.Rect>() }
+    var deleteSelectedFiles by remember { mutableStateOf(false) }
+    val downloadList = remember(rawDownloadList, pendingDeletedIds) {
+        rawDownloadList.filter { !pendingDeletedIds.contains(it.id) }
+    }
+    var sortOption by remember { mutableStateOf(DownloadSortOption.DATE_DESC) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+
+    val sortedDownloadList = remember(downloadList, sortOption) {
+        when (sortOption) {
+            DownloadSortOption.DATE_DESC -> downloadList.sortedByDescending { it.timestampMs }
+            DownloadSortOption.DATE_ASC -> downloadList.sortedBy { it.timestampMs }
+            DownloadSortOption.NAME_ASC -> downloadList.sortedBy { it.fileName.lowercase(Locale.getDefault()) }
+            DownloadSortOption.NAME_DESC -> downloadList.sortedByDescending { it.fileName.lowercase(Locale.getDefault()) }
+            DownloadSortOption.SIZE_DESC -> downloadList.sortedByDescending { if (it.totalSize > 0) it.totalSize else it.bytesDownloaded }
+            DownloadSortOption.SIZE_ASC -> downloadList.sortedBy { if (it.totalSize > 0) it.totalSize else it.bytesDownloaded }
+            DownloadSortOption.STATUS -> downloadList.sortedWith(
+
+                compareBy<DownloadItem> {
+                    when (it.status) {
+                        DownloadStatus.STATUS_RUNNING -> 0
+                        DownloadStatus.STATUS_PAUSED -> 1
+                        DownloadStatus.STATUS_PENDING -> 2
+                        DownloadStatus.STATUS_SUCCESSFUL -> 3
+                        else -> 4
+                    }
+                }.thenByDescending { it.timestampMs }
+            )
+        }
+    }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    fun performStagedDelete(
+        items: List<DownloadItem>,
+        deleteFile: Boolean = sharedPreferences.getBoolean("sp_delete_download_file", false)
+    ) {
+        if (items.isEmpty()) return
+        val targetIds = items.map { it.id }.toSet()
+        pendingDeletedIds = pendingDeletedIds + targetIds
+
+        // Immediately delete from engine, notifications, and storage
+        PetalFetchDownloadBridge.deleteDownloads(context, items, deleteFile)
+
+        val message = if (items.size == 1) {
+            "Deleted ${items.first().fileName}"
+        } else {
+            "Deleted ${items.size} items"
+        }
+
+        coroutineScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = null,
+                duration = SnackbarDuration.Short
+            )
+            pendingDeletedIds = pendingDeletedIds - targetIds
+        }
+    }
+
+    if (pendingDeleteItems.isNotEmpty()) {
+        com.petal.browser.ui.containment.PetalMaterialAlertDialog(
+            onDismissRequest = { pendingDeleteItems = emptyList() },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            icon = { Icon(Icons.Rounded.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.ui_delete_downloads), fontWeight = FontWeight.Bold) },
+            text = { Column { Text(stringResource(R.string.ui_remove_downloads_from_the_list, pendingDeleteItems.size)); Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = deleteSelectedFiles, onCheckedChange = { deleteSelectedFiles = it; androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).edit().putBoolean("sp_delete_download_file", it).apply() }); Text(stringResource(R.string.ui_also_delete_files_from_device)) } } },
+            dismissButton = { TextButton(onClick = { pendingDeleteItems = emptyList() }) { Text(stringResource(R.string.ui_cancel)) } },
+            confirmButton = { Button(onClick = { val items = pendingDeleteItems; pendingDeleteItems = emptyList(); performStagedDelete(items, deleteSelectedFiles) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.ui_delete)) } }
+        )
+    }
+
+    // Completed images are represented by the preview strip below. Keep active,
+    // failed, and paused image downloads in the file list so their controls remain
+    // available, but do not render a second completed-image row.
+    val listDownloads = remember(sortedDownloadList, autoPreviewDownloadedImages) {
+        if (autoPreviewDownloadedImages) {
+            sortedDownloadList.filterNot { it.status == DownloadStatus.STATUS_SUCCESSFUL && isPreviewImage(it.fileName) }
+        } else sortedDownloadList
+    }
+    val groupedDownloads = remember(listDownloads, sortOption) {
+        if (sortOption == DownloadSortOption.DATE_DESC || sortOption == DownloadSortOption.DATE_ASC) {
+            listDownloads.groupBy { item -> formatDateHeader(item.timestampMs) }
+        } else {
+            val header = when (sortOption) {
+                DownloadSortOption.NAME_ASC -> "Sorted by Name (A-Z)"
+                DownloadSortOption.NAME_DESC -> "Sorted by Name (Z-A)"
+                DownloadSortOption.SIZE_DESC -> "Sorted by Size (Largest)"
+                DownloadSortOption.SIZE_ASC -> "Sorted by Size (Smallest)"
+                DownloadSortOption.STATUS -> "Sorted by Status"
+                else -> "All Downloads"
+            }
+            mapOf(header to listDownloads)
+        }
+    }
+
+    // Predictive back gesture (swipe-to-go-back) replaces the plain BackHandler so this
+    // screen participates in the shared shrink/dim/blur animation across the app.
+
+    var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val isSelectionMode = selectedIds.isNotEmpty()
+
+    fun toggleSelectAll() {
+        if (selectedIds.size == downloadList.size) {
+            selectedIds = emptySet()
+        } else {
+            selectedIds = downloadList.map { it.id }.toSet()
+        }
+    }
+
+    fun toggleSelection(id: Long) {
+        selectedIds = if (selectedIds.contains(id)) {
+            selectedIds - id
+        } else {
+            selectedIds + id
+        }
+    }
+
+    var isSettingsOpen by remember { mutableStateOf(false) }
+
+    val hasSubOverlay = isSelectionMode || showBatteryDialog || showNotificationPermissionDialog || sortMenuExpanded
+    val handleDismiss: () -> Unit = {
+        when {
+            showBatteryDialog -> showBatteryDialog = false
+            showNotificationPermissionDialog -> showNotificationPermissionDialog = false
+            isSelectionMode -> selectedIds = emptySet()
+            sortMenuExpanded -> sortMenuExpanded = false
+            isSettingsOpen -> isSettingsOpen = false
+            else -> onBackPress()
+        }
+    }
+
+    if (hasSubOverlay) {
+        androidx.activity.compose.BackHandler(enabled = true) {
+            handleDismiss()
+        }
+    }
+
+    com.petal.browser.predictive.PetalPredictiveBackSurface(
+        enabled = !hasSubOverlay,
+        holdDismissedPose = !isSettingsOpen,
+        useLiveUnderlay = !isSettingsOpen,
+        onBack = {
+            if (isSettingsOpen) {
+                isSettingsOpen = false
+            } else {
+                onBackPress()
+            }
+        },
+    ) {
+    // Two-layer transition, same pattern PetalSettingsScreen.kt uses for category drilling:
+    // the Downloads list stays mounted underneath as its own background layer (isBehind = true)
+    // so PetalScreenWrapper's depth-blur/dim/scale has a real second surface to animate against,
+    // and Download Settings renders as its own foreground layer (isBehind = false) with a fade
+    // transition. The old code ran both screens through one shared PetalScreenWrapper toggled by
+    // a plain boolean, which gave the wrapper nothing correct to interpolate between and produced
+    // the flicker/wrong-animation glitch that only showed up on this entry point.
+    Box(modifier = Modifier.fillMaxSize()) {
+    com.petal.browser.predictive.PetalScreenWrapper(
+        isBehind = isSettingsOpen,
+        backgroundSnapshot = backgroundSnapshot
+    ) {
+    Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            snackbarHost = {
+                PetalSnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            M3ExpressiveVariableBackground(pageSeed = "downloads_page")
+
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            ExpressiveHeader(
+                title = if (isSelectionMode) "${selectedIds.size} Selected" else "Downloads",
+                subtitle = if (isSelectionMode) "Selecting Mode" else "${downloadList.size} files",
+                onBack = { if (hasSubOverlay) handleDismiss() else onBackPress() },
+                actions = {
+                    if (isSelectionMode) {
+                        HeaderActionIcon(
+                            icon = if (selectedIds.size == downloadList.size) Icons.Rounded.Deselect else Icons.Rounded.SelectAll,
+                            contentDescription = "Select All",
+                            onClick = { toggleSelectAll() }
+                        )
+                        HeaderActionIcon(
+                            icon = Icons.Rounded.Share,
+                            contentDescription = "Share Selected",
+                            onClick = {
+                                val itemsToShare = downloadList.filter { selectedIds.contains(it.id) }
+                                shareMultipleFiles(context, itemsToShare)
+                                selectedIds = emptySet()
+                            }
+                        )
+                        HeaderActionIcon(
+                            icon = Icons.Rounded.Delete,
+                            contentDescription = stringResource(R.string.ui_delete_selected),
+                            onClick = {
+                                val itemsToDelete = downloadList.filter { selectedIds.contains(it.id) }
+                                val deletePrefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                                deleteSelectedFiles = deletePrefs.getBoolean("sp_delete_download_file", false)
+                                if (deletePrefs.getBoolean("sp_confirm_download_delete", true)) {
+                                    pendingDeleteItems = itemsToDelete
+                                } else {
+                                    performStagedDelete(itemsToDelete)
+                                }
+                                selectedIds = emptySet()
+                            }
+                        )
+                    } else {
+                        Box {
+                            HeaderActionIcon(
+                                icon = Icons.Rounded.Sort,
+                                contentDescription = "Sort Downloads",
+                                onClick = { sortMenuExpanded = true }
+                            )
+                            com.petal.browser.ui.containment.PetalPopupMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false }
+                            ) {
+                                DownloadSortOption.values().forEach { option ->
+                                    com.petal.browser.ui.containment.PetalPopupMenuItem(
+                                        text = {
+                                            Text(
+                                                text = when (option) {
+                                                    DownloadSortOption.DATE_DESC -> "Date (Newest first)"
+                                                    DownloadSortOption.DATE_ASC -> "Date (Oldest first)"
+                                                    DownloadSortOption.NAME_ASC -> "Name (A-Z)"
+                                                    DownloadSortOption.NAME_DESC -> "Name (Z-A)"
+                                                    DownloadSortOption.SIZE_DESC -> "Size (Largest first)"
+                                                    DownloadSortOption.SIZE_ASC -> "Size (Smallest first)"
+                                                    DownloadSortOption.STATUS -> "Status (Active first)"
+                                                },
+                                                fontWeight = if (sortOption == option) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            if (sortOption == option) {
+                                                Icon(
+                                                    Icons.Rounded.Check,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            sortOption = option
+                                            sortMenuExpanded = false
+                                        }
+                                    )
+                                }
+                                if (downloadList.any { it.status == DownloadStatus.STATUS_SUCCESSFUL }) {
+                                    com.petal.browser.ui.containment.PetalPopupMenuItem(
+                                        text = "Clear completed",
+                                        leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
+                                        onClick = {
+                                            sortMenuExpanded = false
+                                            // Removes the finished rows from the list; files stay on disk.
+                                            PetalFetchDownloadBridge.clearCompleted(context, deleteFile = false)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        HeaderActionIcon(
+                            icon = Icons.Rounded.Settings,
+                            contentDescription = stringResource(R.string.ui_download_settings),
+                            onClick = { isSettingsOpen = true }
+                        )
+                    }
+                }
+            )
+
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            if (isLoading) {
+                com.petal.browser.compose.composable.ContainedLoadingIndicator(
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (downloadList.isEmpty()) {
+                DownloadsEmptyState()
+            } else {
+                val downloadsListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                LazyColumn(
+                    state = downloadsListState,
+                    flingBehavior = petalFlingBehavior(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .scrollMotionBlur(downloadsListState),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + 24.dp)
+                ) {
+                    if (downloadList.any { it.status == DownloadStatus.STATUS_RUNNING }) {
+                        item(key = "active_summary") {
+                            ActiveDownloadsSummary(
+                                items = downloadList,
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .animateItem()
+                            )
+                        }
+                        if (!batteryExempt) {
+                            item(key = "battery_warning") {
+                                BackgroundDownloadWarning(
+                                    onFix = { PetalBatteryOptimization.requestExemption(context) },
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                                        .animateItem()
+                                )
+                            }
+                        }
+                    }
+                    if (autoPreviewDownloadedImages) {
+                        item {
+                            DownloadedImagePreviewStrip(
+                                downloads = downloadList,
+                                onDeleteItem = { itemToDelete ->
+                                    val deletePrefs = sharedPreferences
+                                    if (deletePrefs.getBoolean("sp_confirm_download_delete", true)) {
+                                        deleteSelectedFiles = deletePrefs.getBoolean("sp_delete_download_file", false)
+                                        pendingDeleteItems = listOf(itemToDelete)
+                                    } else {
+                                        performStagedDelete(
+                                            listOf(itemToDelete),
+                                            deletePrefs.getBoolean("sp_delete_download_file", false)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    groupedDownloads.forEach { (dateHeader, items) ->
+                        stickyHeader(key = dateHeader) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.background,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = dateHeader,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 8.dp)
+                                )
+                            }
+                        }
+
+                        itemsIndexed(items, key = { index, it -> "${it.id}_$index" }) { index, item ->
+                            val isSelected = selectedIds.contains(item.id)
+                            val rowPosition = petalGroupPositionFor(index, items.size)
+                            val confirmDelete = sharedPreferences.getBoolean("sp_confirm_download_delete", true)
+                            val errorContainer = MaterialTheme.colorScheme.errorContainer
+                            val onErrorContainer = MaterialTheme.colorScheme.onErrorContainer
+                            val swipeDelete = remember(item.id, confirmDelete, errorContainer, onErrorContainer) {
+                                PetalSwipeAction(
+                                    icon = Icons.Rounded.DeleteForever,
+                                    label = "Delete",
+                                    container = errorContainer,
+                                    content = onErrorContainer,
+                                    // With the confirm dialog on, the row springs back and the dialog decides; otherwise it folds away.
+                                    removes = !confirmDelete,
+                                    onTrigger = {
+                                        if (confirmDelete) {
+                                            deleteSelectedFiles = sharedPreferences.getBoolean("sp_delete_download_file", false)
+                                            pendingDeleteItems = listOf(item)
+                                        } else {
+                                            performStagedDelete(listOf(item), sharedPreferences.getBoolean("sp_delete_download_file", false))
+                                        }
+                                    }
+                                )
+                            }
+                            PetalSwipeRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .onGloballyPositioned { rowBounds[item.id] = it.boundsInWindow() }
+                                    .entrance(index = index, playKey = item.id)
+                                    .animateItem(
+                                        fadeInSpec = PetalSpring.fadeIn(),
+                                        fadeOutSpec = PetalSpring.fadeOut(),
+                                        placementSpec = PetalSpring.spatial()
+                                    ),
+                                shape = petalGroupShape(rowPosition),
+                                enabled = !isSelectionMode,
+                                endToStart = swipeDelete,
+                            ) {
+                            DownloadRowItem(
+                                item = item,
+                                isSelected = isSelected,
+                                isSelectionMode = isSelectionMode,
+                                position = rowPosition,
+                                showFullDate = (sortOption != DownloadSortOption.DATE_DESC && sortOption != DownloadSortOption.DATE_ASC),
+                                modifier = Modifier,
+                                onToggleSelect = { toggleSelection(item.id) },
+                                onLongClick = {
+                                    if (!isSelectionMode) {
+                                        toggleSelection(item.id)
+                                    }
+                                },
+                                onDeleteItem = { deleteFile -> performStagedDelete(listOf(item), deleteFile) },
+                                onOpenFile = {
+                                    PetalContainerSource.set(rowBounds[item.id])
+                                    val activity = context as? com.petal.browser.activity.MainActivity
+                                    if (activity != null && item.status == DownloadStatus.STATUS_SUCCESSFUL && isPreviewImage(item.fileName)) {
+                                        val allImages = sortedDownloadList.filter { it.status == DownloadStatus.STATUS_SUCCESSFUL && isPreviewImage(it.fileName) && !it.localUri.isNullOrBlank() }
+                                        activity.pendingOverlayBackAction = Runnable {
+                                            activity.runOnUiThread { activity.showDownloads() }
+                                        }
+                                        val view = PetalImageViewerBridge.createViewerView(activity, item, allImages) {
+                                            activity.runOnUiThread { activity.performBackNavigation() }
+                                        }
+                                        activity.runOnUiThread { activity.presentComposeScreen(view) }
+                                    } else if (activity != null && item.status == DownloadStatus.STATUS_SUCCESSFUL && isUniversalViewable(item.fileName)) {
+                                        val rawUri = item.localUri?.let { Uri.parse(it) }
+                                        val targetUri = if (rawUri != null && (rawUri.scheme == "file" || rawUri.scheme == null)) {
+                                            val file = java.io.File(rawUri.path ?: item.localUri!!.removePrefix("file://"))
+                                            if (file.exists()) {
+                                                androidx.core.content.FileProvider.getUriForFile(activity, activity.packageName + ".fileprovider", file)
+                                            } else rawUri
+                                        } else rawUri
+                                        if (targetUri != null) {
+                                            activity.pendingOverlayBackAction = Runnable {
+                                                activity.runOnUiThread { activity.showDownloads() }
+                                            }
+                                            val view = com.petal.browser.compose.file.PetalFileViewerBridge.createFileViewerView(
+                                                activity, targetUri, item.fileName
+                                            ) {
+                                                activity.runOnUiThread { activity.performBackNavigation() }
+                                            }
+                                            activity.runOnUiThread { activity.presentComposeScreen(view) }
+                                        } else {
+                                            openDownloadedFile(context, item)
+                                        }
+                                    } else {
+                                        openDownloadedFile(context, item)
+                                    }
+                                }
+                            )
+                            }
+                        }
+                    }
+                }
+
+                PetalExpressiveScrollBar(
+                    listState = downloadsListState,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    dragLabelProvider = { index ->
+                        downloadList.getOrNull(index)?.fileName?.let { extractFastScrollGlyph(it) }
+                    }
+                )
+            }
+        }
+    }
+    } // closes Box (inner)
+    } // closes innerPadding lambda
+    } // closes Scaffold
+    } // closes PetalScreenWrapper (Downloads list background layer)
+
+    if (isSettingsOpen) {
+        com.petal.browser.predictive.PetalScreenWrapper(isBehind = false) {
+            AnimatedContent(
+                targetState = isSettingsOpen,
+                transitionSpec = {
+                    (fadeIn(animationSpec = PetalSpring.fadeIn()) + scaleIn(initialScale = 0.94f, animationSpec = PetalSpring.containerMorph())) togetherWith
+                        (fadeOut(animationSpec = PetalSpring.fadeOut()) + scaleOut(targetScale = 0.94f, animationSpec = PetalSpring.containerMorph()))
+                },
+                label = "downloadSettingsTransition"
+            ) { settingsOpen ->
+                if (settingsOpen) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        com.petal.browser.compose.settings.screens.DownloadSettingsScreen(
+                            onNavigateBack = { isSettingsOpen = false }
+                        )
+                    }
+                }
+            }
+        }
+    }
+    } // closes Box (outer)
+} // closes PetalPredictiveBackSurface
+
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun DownloadedImagePreviewStrip(
+    downloads: List<DownloadItem>,
+    onDeleteItem: (DownloadItem) -> Unit
+) {
+    val context = LocalContext.current
+    var menuItem by remember { mutableStateOf<DownloadItem?>(null) }
+    val images = downloads.filter { it.status == DownloadStatus.STATUS_SUCCESSFUL && isPreviewImage(it.fileName) && !it.localUri.isNullOrBlank() }.take(6)
+    if (images.isEmpty()) return
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(stringResource(R.string.ui_downloaded_images), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            images.forEach { item ->
+                val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, item.localUri) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching { BitmapFactory.decodeFile(Uri.parse(item.localUri).path ?: item.localUri) }.getOrNull()
+                    }
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier
+                        .fillMaxWidth()
+                        .height(if (images.size == 1) 220.dp else 130.dp)
+                        .combinedClickable(
+                            onClick = {
+                                val activity = context as? com.petal.browser.activity.MainActivity
+                                if (activity != null) {
+                                    activity.pendingOverlayBackAction = Runnable {
+                                        activity.runOnUiThread { activity.showDownloads() }
+                                    }
+                                    val view = PetalImageViewerBridge.createViewerView(activity, item, images) {
+                                        activity.runOnUiThread { activity.performBackNavigation() }
+                                    }
+                                    activity.runOnUiThread { activity.presentComposeScreen(view) }
+                                } else {
+                                    openDownloadedFile(context, item)
+                                }
+                            },
+                            onLongClick = { menuItem = item }
+                        )) {
+                        if (bitmap != null) Image(bitmap!!.asImageBitmap(), contentDescription = item.fileName, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)))
+                        else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Image, null) }
+                    }
+                    if (menuItem?.id == item.id) {
+                        val openViewer: () -> Unit = {
+                            val activity = context as? com.petal.browser.activity.MainActivity
+                            if (activity != null) {
+                                activity.pendingOverlayBackAction = Runnable {
+                                    activity.runOnUiThread { activity.showDownloads() }
+                                }
+                                val view = PetalImageViewerBridge.createViewerView(activity, item, images) {
+                                    activity.runOnUiThread { activity.performBackNavigation() }
+                                }
+                                activity.runOnUiThread { activity.presentComposeScreen(view) }
+                            } else openDownloadedFile(context, item)
+                        }
+                        DownloadActionsSheet(
+                            title = item.fileName,
+                            subtitle = "",
+                            icon = Icons.Rounded.Image,
+                            actions = listOf(
+                                DlAction(stringResource(R.string.ui_view_image), Icons.Rounded.Image, PetalSheetTone.Primary, openViewer),
+                                DlAction(stringResource(R.string.ui_open_in_app), Icons.Rounded.OpenInNew, PetalSheetTone.Secondary) { openDownloadedFile(context, item) },
+                                DlAction(stringResource(R.string.ui_share), Icons.Rounded.Share, PetalSheetTone.TertiaryStrong) { shareDownloadedFile(context, item) },
+                                DlAction(stringResource(R.string.ui_delete), Icons.Rounded.Delete, PetalSheetTone.Danger) {
+                                    val targetItem = item
+                                    onDeleteItem(targetItem)
+                                },
+                            ),
+                            onDismiss = { menuItem = null }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun isPreviewImage(name: String): Boolean = name.substringAfterLast('.', "").lowercase(Locale.US) in setOf("jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "avif")
+
+private fun isUniversalViewable(name: String): Boolean {
+    val ext = name.substringAfterLast('.', "").lowercase(Locale.US)
+    return ext in setOf(
+        "pdf", "docx", "doc", "txt", "md", "markdown", "csv", "json", "xml",
+        "html", "htm", "log", "kt", "java", "py", "c", "cpp", "h", "hpp", "js",
+        "ts", "css", "sh", "yaml", "yml", "ini", "properties", "gradle", "sql", "svg",
+        "zip", "rar", "7z", "tar", "gz", "tgz", "jar", "xpi"
+    )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun DownloadRowItem(
+    item: DownloadItem,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    position: PetalGroupPosition,
+    showFullDate: Boolean = false,
+    modifier: Modifier = Modifier,
+    onToggleSelect: () -> Unit,
+    onLongClick: () -> Unit,
+    onDeleteItem: (deleteFile: Boolean) -> Unit,
+    onOpenFile: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deleteFile by remember { mutableStateOf(androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).getBoolean("sp_delete_download_file", false)) }
+    var renameInput by remember { mutableStateOf(item.fileName) }
+
+    if (showDeleteDialog) {
+        com.petal.browser.ui.containment.PetalMaterialAlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            icon = { Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.ui_delete_download), fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.ui_remove_from_the_download_list, item.fileName))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = deleteFile, onCheckedChange = { deleteFile = it; androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).edit().putBoolean("sp_delete_download_file", it).apply() })
+                        Text(stringResource(R.string.ui_also_delete_the_file_from))
+                    }
+                }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.ui_cancel)) } },
+            confirmButton = { Button(onClick = { showDeleteDialog = false; onDeleteItem(deleteFile) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.ui_delete)) } }
+        )
+    }
+
+
+    if (showRenameDialog) {
+        com.petal.browser.ui.containment.PetalMaterialAlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            title = {
+                Text(
+                    text = stringResource(R.string.ui_rename_file),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                TextField(
+                    value = renameInput,
+                    onValueChange = { renameInput = it },
+                    label = { Text(stringResource(R.string.ui_file_name)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showRenameDialog = false
+                        if (renameInput.isNotBlank() && renameInput != item.fileName) {
+                            renameDownloadedFile(context, item, renameInput.trim())
+                        }
+                    },
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.ui_rename),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showRenameDialog = false },
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.ui_cancel),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                }
+            }
+        )
+    }
+
+    PetalGroupListRow(
+        position = position,
+        selected = isSelected,
+        onClick = {
+            if (isSelectionMode) onToggleSelect()
+            else if (item.status == DownloadStatus.STATUS_SUCCESSFUL) onOpenFile()
+        },
+        onLongClick = onLongClick,
+        modifier = modifier.fillMaxWidth(),
+        leading = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isSelectionMode) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onToggleSelect() },
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                }
+
+                // Leading avatar: a Play Store-style circular progress ring with a Chrome-style
+                // pause/resume glyph in the center while active, falling back to the plain file
+                // type icon once the download is finished/idle.
+                DownloadProgressRing(
+                    item = item,
+                    isSelected = isSelected,
+                    isSelectionMode = isSelectionMode,
+                    onTogglePauseResume = {
+                        when (item.status) {
+                            // yt-dlp and page-data rows cannot be paused; only Mozilla-owned rows can.
+                            DownloadStatus.STATUS_RUNNING ->
+                                if (item.source.isMozillaOwned) PetalLiveAlertManager.pauseDownload(context, item.id)
+                            DownloadStatus.STATUS_PAUSED -> PetalLiveAlertManager.resumeDownload(context, item.id)
+                            DownloadStatus.STATUS_FAILED ->
+                                if (item.source != com.petal.browser.download.DownloadSource.BLOB) PetalLiveAlertManager.retryDownload(context, item.id)
+                            else -> {}
+                        }
+                    }
+                )
+            }
+        },
+        content = {
+            Column(verticalArrangement = Arrangement.Center) {
+                    Text(
+                        text = item.fileName,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    val domain = remember(item.fileUrl) { extractDomain(item.fileUrl) }
+                    val formattedSize = remember(item.totalSize, item.bytesDownloaded) {
+                        if (item.totalSize > 0) formatBytes(item.totalSize) else formatBytes(item.bytesDownloaded)
+                    }
+                    val timeStr = remember(item.timestampMs, showFullDate) {
+                        formatDownloadTime(item.timestampMs, includeDate = showFullDate)
+                    }
+
+                    val subtitleText = remember(item, domain, formattedSize, timeStr) {
+                        val parts = mutableListOf<String>()
+                        when (item.status) {
+                            DownloadStatus.STATUS_RUNNING -> {
+                                val percentStr = if (item.progress != null) "${(item.progress * 100).toInt()}%" else ""
+                                parts.add("${formatBytes(item.bytesDownloaded)} of $formattedSize")
+                                if (percentStr.isNotEmpty()) parts.add(percentStr)
+                                // Speed and ETA were computed all along but never shown anywhere.
+                                parts.add(if (item.speedBytesPerSec > 0) formatSpeed(item.speedBytesPerSec) else "Starting…")
+                                if (item.etaSeconds > 0) parts.add("${formatEta(item.etaSeconds)} left")
+                                if (item.connections > 1) parts.add("×${item.connections} connections")
+                            }
+                            DownloadStatus.STATUS_FAILED -> parts.add(
+                                item.failureReason?.takeIf { it.isNotBlank() }?.let { "Failed • $it" } ?: "Failed • $formattedSize"
+                            )
+                            DownloadStatus.STATUS_PAUSED -> parts.add("Paused • $formattedSize")
+                            DownloadStatus.STATUS_PENDING -> parts.add("Starting…")
+                            else -> parts.add(formattedSize)
+                        }
+                        // A running row already carries progress, speed and ETA; adding time and
+                        // domain would only get everything truncated by the single-line ellipsis.
+                        if (item.status != DownloadStatus.STATUS_RUNNING) {
+                            if (timeStr.isNotEmpty()) parts.add(timeStr)
+                            if (domain.isNotEmpty()) parts.add(domain)
+                        }
+                        parts.joinToString(" • ")
+                    }
+
+                    Text(
+                        text = subtitleText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (item.status == DownloadStatus.STATUS_FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        // A failure reason is the one line the user needs; let it wrap instead of truncating.
+                        maxLines = if (item.status == DownloadStatus.STATUS_FAILED) 3 else 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Source badge: shown for everything that is not an ordinary browser download.
+                    if (item.source != com.petal.browser.download.DownloadSource.HTTP_MOZILLA) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        androidx.compose.material3.Surface(
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = item.source.displayName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+            }
+        },
+        trailing = {
+                val menuRotation by animateFloatAsState(
+                    targetValue = if (menuExpanded) 180f else 0f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+                    label = "dl_item_menu_rot"
+                )
+                Box {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .graphicsLayer { rotationZ = menuRotation }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = stringResource(R.string.ui_more_options),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (menuExpanded) {
+                        val acts = buildList {
+                            if (item.status == DownloadStatus.STATUS_RUNNING && item.source.isMozillaOwned)
+                                add(DlAction(stringResource(R.string.ui_pause), Icons.Rounded.Pause, PetalSheetTone.Primary) { PetalLiveAlertManager.pauseDownload(context, item.id) })
+                            if (item.status == DownloadStatus.STATUS_PAUSED)
+                                add(DlAction(stringResource(R.string.ui_resume), Icons.Rounded.PlayArrow, PetalSheetTone.Primary) { PetalLiveAlertManager.resumeDownload(context, item.id) })
+                            if (item.status == DownloadStatus.STATUS_FAILED && item.source != com.petal.browser.download.DownloadSource.BLOB)
+                                add(DlAction(stringResource(R.string.ui_retry), Icons.Rounded.Refresh, PetalSheetTone.Primary) { PetalLiveAlertManager.retryDownload(context, item.id) })
+                            if (item.status == DownloadStatus.STATUS_SUCCESSFUL) {
+                                add(DlAction(stringResource(R.string.ui_open), Icons.Rounded.OpenInNew, PetalSheetTone.Primary) { onOpenFile() })
+                                add(DlAction(stringResource(R.string.ui_share), Icons.Rounded.Share, PetalSheetTone.TertiaryStrong) { shareDownloadedFile(context, item) })
+                                add(DlAction(stringResource(R.string.ui_rename), Icons.Rounded.Edit, PetalSheetTone.Secondary) { showRenameDialog = true })
+                            }
+                            add(DlAction(stringResource(R.string.ui_copy_link_2), Icons.Rounded.ContentCopy, PetalSheetTone.Tertiary) { copyDownloadLink(context, item.fileUrl) })
+                            add(DlAction(stringResource(R.string.ui_delete), Icons.Rounded.Delete, PetalSheetTone.Danger) {
+                                if (androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).getBoolean("sp_confirm_download_delete", true)) {
+                                    showDeleteDialog = true
+                                } else {
+                                    onDeleteItem(deleteFile)
+                                }
+                            })
+                        }
+                        DownloadActionsSheet(
+                            title = item.fileName,
+                            subtitle = item.fileUrl,
+                            icon = Icons.Rounded.Download,
+                            actions = acts,
+                            onDismiss = { menuExpanded = false }
+                        )
+                    }
+                }
+        }
+    )
+}
+
+/** Aggregate card shown while anything is downloading: count, combined speed, overall ETA and progress. */
+@Composable
+private fun ActiveDownloadsSummary(items: List<DownloadItem>, modifier: Modifier = Modifier) {
+    val running = items.filter { it.status == DownloadStatus.STATUS_RUNNING }
+    if (running.isEmpty()) return
+    val waiting = items.count { it.status == DownloadStatus.STATUS_PENDING }
+    val totalSpeed = running.sumOf { it.speedBytesPerSec }
+    // Only downloads with a known size can contribute to an honest overall percentage.
+    val sized = running.filter { it.totalSize > 0L }
+    val sizedTotal = sized.sumOf { it.totalSize }
+    val sizedDone = sized.sumOf { it.bytesDownloaded.coerceAtMost(it.totalSize) }
+    val overall = if (sizedTotal > 0L) (sizedDone.toFloat() / sizedTotal.toFloat()).coerceIn(0f, 1f) else null
+    val eta = if (totalSpeed > 0L && sizedTotal > sizedDone) (sizedTotal - sizedDone) / totalSpeed else 0L
+    val animated by animateFloatAsState(
+        targetValue = overall ?: 0f,
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        label = "dl_summary_progress"
+    )
+
+    val title = buildString {
+        append(if (running.size == 1) "1 download" else "${running.size} downloads")
+        if (waiting > 0) append(" • $waiting waiting")
+    }
+    val detail = buildString {
+        append(if (totalSpeed > 0L) formatSpeed(totalSpeed) else "Starting…")
+        if (eta > 0L) append(" • ${formatEta(eta)} left")
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.Speed,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (overall != null) {
+                    Text(
+                        text = "${(overall * 100).toInt()}%",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+            if (overall != null) {
+                Spacer(Modifier.height(10.dp))
+                LinearProgressIndicator(
+                    progress = { animated },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(ExpressiveButtonShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f)
+                )
+            }
+        }
+    }
+}
+
+/** Shown only while downloads are running and Petal is still battery-restricted. */
+@Composable
+private fun BackgroundDownloadWarning(onFix: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.BatteryAlert,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Downloads may pause when your screen locks",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onFix) { Text("Fix") }
+        }
+    }
+}
+
+/**
+ * Chrome/Play Store-style leading control: a circular wavy ring that sweeps around the icon to
+ * show progress, with the icon itself doubling as a tappable pause/resume/status glyph.
+ * - Running: filled CircularWavyProgressIndicator with Pause glyph in center. Tap to pause.
+ * - Paused: frozen CircularWavyProgressIndicator with Play glyph in center. Tap to resume.
+ * - Failed: error glyph, no ring.
+ * - Completed/other: falls back to the original expressive file-type icon.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DownloadProgressRing(
+    item: DownloadItem,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onTogglePauseResume: () -> Unit
+) {
+    val isRunning = item.status == DownloadStatus.STATUS_RUNNING
+    val isPaused = item.status == DownloadStatus.STATUS_PAUSED
+    val isPending = item.status == DownloadStatus.STATUS_PENDING
+    val isFailed = item.status == DownloadStatus.STATUS_FAILED
+    val showRing = (isRunning || isPaused || isPending) && !isSelected
+
+    val ringColor = when {
+        isPaused -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+        isPending -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = (item.progress ?: 0f).coerceIn(0f, 1f),
+        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+        label = "RingProgress"
+    )
+
+    val avatarShape = remember(item.id) {
+        val all = PetalMaterialShapes.allShapes
+        val idx = (item.id.toInt() and 0x7FFFFFFF) % all.size
+        all[idx].toShape()
+    }
+
+    val (expressiveBgColor, expressiveIconTint) = getFileTypeContainerColors(item.fileName, isSelected)
+
+    // When actively downloading/paused/pending, use theme-aware harmonious container
+    val containerBgColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isRunning -> MaterialTheme.colorScheme.primaryContainer
+        isPaused -> MaterialTheme.colorScheme.surfaceContainerHigh
+        isPending -> MaterialTheme.colorScheme.tertiaryContainer
+        else -> expressiveBgColor
+    }
+
+    Surface(
+        shape = if (showRing) ExpressiveButtonShape else avatarShape,
+        color = containerBgColor,
+        modifier = Modifier
+            .size(46.dp)
+            .then(
+                if (showRing && !isSelectionMode) {
+                    Modifier.clickable(
+                        onClickLabel = if (isRunning) "Pause download" else "Resume download",
+                        onClick = onTogglePauseResume
+                    )
+                } else Modifier
+            )
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            if (showRing) {
+                if (item.progress != null) {
+                    PetalCircularWavyProgressIndicator(progress = { animatedProgress }, color = ringColor, trackColor = trackColor, size = 41.dp, strokeWidth = 3.2.dp, wavelength = 16.dp)
+                } else {
+                    PetalCircularWavyProgressIndicator(progress = null, color = ringColor, trackColor = trackColor, size = 41.dp, strokeWidth = 3.2.dp, wavelength = 16.dp)
+                }
+            }
+
+            val glyph: ImageVector = when {
+                isSelected -> Icons.Rounded.Check
+                isRunning -> Icons.Rounded.Pause
+                isPaused -> Icons.Rounded.PlayArrow
+                isPending -> Icons.Rounded.Schedule
+                isFailed -> Icons.Rounded.ErrorOutline
+                else -> getFileTypeIcon(item.fileName)
+            }
+
+            val glyphTint = when {
+                isSelected -> MaterialTheme.colorScheme.onPrimary
+                isRunning -> MaterialTheme.colorScheme.primary
+                isPaused -> MaterialTheme.colorScheme.onSurfaceVariant
+                isPending -> MaterialTheme.colorScheme.onTertiaryContainer
+                showRing -> ringColor
+                else -> expressiveIconTint
+            }
+
+            Icon(
+                imageVector = glyph,
+                contentDescription = when {
+                    isRunning -> "Pause download"
+                    isPaused -> "Resume download"
+                    else -> null
+                },
+                tint = glyphTint,
+                modifier = Modifier.size(if (showRing) 20.dp else 22.dp)
+            )
+        }
+    }
+}
+
+internal fun openDownloadedFile(context: Context, item: DownloadItem) {
+    try {
+        var contentUri: Uri? = null
+        var mimeType: String? = null
+
+        val localUriString = item.localUri
+        if (!localUriString.isNullOrEmpty()) {
+            val rawUri = Uri.parse(localUriString)
+            if (rawUri.scheme == "file" || rawUri.scheme == null) {
+                val filePath = rawUri.path ?: localUriString.removePrefix("file://")
+                val file = java.io.File(filePath)
+                if (file.exists()) {
+                    try {
+                        contentUri = androidx.core.content.FileProvider.getUriForFile(
+                            context,
+                            context.packageName + ".fileprovider",
+                            file
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } else {
+                contentUri = rawUri
+            }
+        }
+
+        if (contentUri == null && item.fileName.isNotBlank()) {
+            try {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = java.io.File(downloadsDir, item.fileName)
+                if (file.exists()) {
+                    contentUri = androidx.core.content.FileProvider.getUriForFile(
+                        context,
+                        context.packageName + ".fileprovider",
+                        file
+                    )
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        if (contentUri != null) {
+            com.petal.browser.download.PetalFileOpener.openFile(context, contentUri, item.fileName, mimeType)
+        } else {
+            PetalToast.show(context, context.getString(R.string.ui_download_file_not_found, item.fileName), android.widget.Toast.LENGTH_SHORT)
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        PetalToast.show(context, context.getString(R.string.ui_download_unable_to_open, e.message ?: ""), android.widget.Toast.LENGTH_SHORT)
+    }
+}
+
+private fun deleteDownloadedFile(context: Context, item: DownloadItem) {
+    try {
+        PetalFetchDownloadBridge.deleteDownload(context, item)
+        PetalToast.show(context, context.getString(R.string.ui_download_deleted, item.fileName), android.widget.Toast.LENGTH_SHORT)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+private fun renameDownloadedFile(context: Context, item: DownloadItem, newName: String) {
+    try {
+        if (item.localUri != null) {
+            val uri = Uri.parse(item.localUri)
+            val oldFile = java.io.File(uri.path ?: "")
+            if (oldFile.exists()) {
+                val newFile = java.io.File(oldFile.parent, newName)
+                if (oldFile.renameTo(newFile)) {
+                    android.media.MediaScannerConnection.scanFile(context, arrayOf(newFile.absolutePath), null, null)
+                    com.petal.browser.view.PetalToast.show(context, context.getString(R.string.ui_download_renamed, newName))
+                }
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+private fun copyDownloadLink(context: Context, url: String) {
+    try {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText("Download Link", url)
+        clipboard.setPrimaryClip(clip)
+        com.petal.browser.view.PetalToast.show(context, context.getString(R.string.pref_custom_tabs_copied))
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+internal fun shareDownloadedFile(context: Context, item: DownloadItem) {
+    try {
+        var contentUri: Uri? = null
+        val localUriString = item.localUri
+        if (!localUriString.isNullOrEmpty()) {
+            val rawUri = Uri.parse(localUriString)
+            if (rawUri.scheme == "file" || rawUri.scheme == null) {
+                val filePath = rawUri.path ?: localUriString.removePrefix("file://")
+                val file = java.io.File(filePath)
+                if (file.exists()) {
+                    try {
+                        contentUri = androidx.core.content.FileProvider.getUriForFile(
+                            context,
+                            context.packageName + ".fileprovider",
+                            file
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } else {
+                contentUri = rawUri
+            }
+        }
+        if (contentUri == null && item.fileName.isNotBlank()) {
+            try {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = java.io.File(downloadsDir, item.fileName)
+                if (file.exists()) {
+                    contentUri = androidx.core.content.FileProvider.getUriForFile(
+                        context,
+                        context.packageName + ".fileprovider",
+                        file
+                    )
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            if (contentUri != null) {
+                putExtra(Intent.EXTRA_STREAM, contentUri)
+                type = context.contentResolver.getType(contentUri) ?: "*/*"
+            } else {
+                putExtra(Intent.EXTRA_TEXT, item.fileUrl)
+                type = "text/plain"
+            }
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(intent, "Share file").apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+private fun shareMultipleFiles(context: Context, items: List<DownloadItem>) {
+    if (items.isEmpty()) return
+    if (items.size == 1) {
+        shareDownloadedFile(context, items.first())
+        return
+    }
+    try {
+        val uris = ArrayList<Uri>()
+        items.forEach { item ->
+            var contentUri: Uri? = null
+            val localUriString = item.localUri
+            if (!localUriString.isNullOrEmpty()) {
+                val rawUri = Uri.parse(localUriString)
+                if (rawUri.scheme == "file" || rawUri.scheme == null) {
+                    val filePath = rawUri.path ?: localUriString.removePrefix("file://")
+                    val file = java.io.File(filePath)
+                    if (file.exists()) {
+                        try {
+                            contentUri = androidx.core.content.FileProvider.getUriForFile(
+                                context,
+                                context.packageName + ".fileprovider",
+                                file
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                } else {
+                    contentUri = rawUri
+                }
+            }
+            if (contentUri == null && item.fileName.isNotBlank()) {
+                try {
+                    val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    val file = java.io.File(downloadsDir, item.fileName)
+                    if (file.exists()) {
+                        contentUri = androidx.core.content.FileProvider.getUriForFile(
+                            context,
+                            context.packageName + ".fileprovider",
+                            file
+                        )
+                    }
+                } catch (e: Exception) { e.printStackTrace() }
+            }
+            if (contentUri != null) {
+                uris.add(contentUri)
+            }
+        }
+        if (uris.isNotEmpty()) {
+            val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                type = "*/*"
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(intent, "Share ${items.size} files").apply {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooser)
+        } else {
+            val linksText = items.joinToString("\n") { it.fileUrl }
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                putExtra(Intent.EXTRA_TEXT, linksText)
+                type = "text/plain"
+            }
+            val chooser = Intent.createChooser(intent, "Share links").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooser)
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+private fun deleteMultipleFiles(context: Context, items: List<DownloadItem>) {
+    if (items.isEmpty()) return
+    try {
+        PetalFetchDownloadBridge.deleteDownloads(context, items)
+        com.petal.browser.view.PetalToast.show(context, context.getString(R.string.ui_downloads_deleted_multiple, items.size))
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
+@Composable
+private fun DownloadsEmptyState() {
+    com.petal.browser.ui.components.EmptyStateBlob(
+        illustrationType = com.petal.browser.ui.components.EmptyStateIllustrationType.DOWNLOADS,
+        title = stringResource(R.string.ui_no_downloads_yet),
+        description = stringResource(R.string.ui_files_you_download_will_appear)
+    )
+}
+
+private data class DlAction(
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val tone: PetalSheetTone,
+    val onClick: () -> Unit,
+)
+
+/** PixelMusic-style actions sheet (live-glass aware via PetalSheet + shared sheet parts). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DownloadActionsSheet(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    actions: List<DlAction>,
+    onDismiss: () -> Unit,
+) {
+    com.petal.browser.ui.containment.PetalSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            PetalSheetHeader(
+                title = title,
+                subtitle = subtitle.ifBlank { null },
+                leading = {
+                    Box(
+                        Modifier
+                            .size(80.dp)
+                            .petalSheetSurface(
+                                com.petal.browser.ui.theme.SmoothRoundedShape(24.dp),
+                                MaterialTheme.colorScheme.primaryContainer
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(36.dp))
+                    }
+                }
+            )
+            Spacer(Modifier.height(6.dp))
+            actions.chunked(2).forEach { rowActions ->
+                PetalSheetActionRow {
+                    rowActions.forEach { act ->
+                        PetalSheetPill(
+                            text = act.label,
+                            icon = act.icon,
+                            tone = act.tone,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onDismiss(); act.onClick() }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

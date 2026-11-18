@@ -1,0 +1,2375 @@
+* للكبار *
+* للكبار فقط *
+*+18*
+*+21*
+*-anon*
+*-anonymous*
+*-bypass*
+*-proxy-*
+*-proxy.*
+*-tunnel*
+*-unblock*
+*-vpn.*
+*.*/*p=*proxies*
+*.*/*p=*proxy*
+*.*/*p=*vpn*
+*.*/*q=*proxies*
+*.*/*q=*proxy*
+*.*/*q=*vpn*
+*.4tube.com
+*.addons.mozilla.org*proxy*
+*.addons.mozilla.org*vpn*
+*.adult*
+*.airvpn.org
+*.alphaporno.com
+*.analdin.com
+*.andisearch.com
+*.anonymizer.com
+*.anonymous.*
+*.anonymouse.org
+*.anonymousvpn.org
+*.anydesk.com
+*.aol.com
+*.ask.com
+*.atlasvpn.com
+*.avira-vpn.com
+*.azurestaticapps.net
+*.baidu.com
+*.bangbros.com
+*.bantelegram.com
+*.beeg.com
+*.betternet.co
+*.boardreader.com
+*.bolehvpn.net
+*.bongacams.com
+*.brave.com
+*.brave.com/tor*
+*.brazzers.com
+*.brook.app
+*.bypass.*
+*.calyx.net
+*.cam4.com
+*.camsoda.com
+*.channelsearch.net
+*.chaturbate.com
+*.chrome.google.com/webstore*vpn*
+*.clips4sale.com
+*.cloudflare-ipfs.com
+*.cloudflarewarp.com
+*.combot.org
+*.croxy.*
+*.croxyproxy.com
+*.cyberghostvpn.com
+*.danbooru.donmai.us
+*.dogpile.com
+*.drtuber.com
+*.duckduckgo.com
+*.e621.net
+*.ecosia.org
+*.entireweb.com
+*.eporner.com
+*.excite.com
+*.expressvpn.com
+*.fakehub.com
+*.faketaxi.com
+*.fansly.com
+*.fapster.xxx
+*.filterbypass.me
+*.flirt4free.com
+*.freegate.com
+*.freevpn.org
+*.fux.com
+*.gelbooru.com
+*.getlantern.org
+*.getoutline.org
+*.gibiru.com
+*.gigablast.com
+*.glitch.com
+*.glitch.me
+*.hanime.tv
+*.hclips.com
+*.hentaihaven.org
+*.herokuapp.com
+*.herokucdn.com
+*.hide.me
+*.hidemyass.com
+*.hidester.com
+*.hola.org
+*.hotbot.com
+*.hotspotshield.com
+*.instya.com
+*.ipvanish.com
+*.ivpn.net
+*.javhd.com
+*.kagi.com
+*.kaspersky-vpn.com
+*.kproxy.com
+*.lantern.io
+*.livejasmin.com
+*.lycos.com
+*.lyzem.com
+*.manyvids.com
+*.mcafee-vpn.com
+*.megaproxy.com
+*.metager.de
+*.metager.org
+*.mofos.com
+*.mojeek.com
+*.motherless.com
+*.mullvad.net
+*.myfreecams.com
+*.naughtyamerica.com
+*.naver.com
+*.neeva.com
+*.netlify.app
+*.newipnow.com
+*.nhentai.net
+*.ninjacloak.com
+*.nordvpn.com
+*.nuvid.com
+*.oceanhero.today
+*.one.one.one.one
+*.onion*
+*.onlyfans.com
+*.opera-vpn.com
+*.oscobo.com
+*.outline.com
+*.pages.dev
+*.perfect-privacy.com
+*.perplexity.ai
+*.phind.com
+*.porn*
+*.porn.com
+*.porn300.com
+*.porngo.com
+*.pornhub.com
+*.pornhubpremium.com
+*.pornone.com
+*.porntrex.com
+*.presearch.com
+*.privateinternetaccess.com
+*.privatevpn.com
+*.prokxy.com
+*.protonvpn.com
+*.protonvpn.net
+*.proxfree.com
+*.proxify.com
+*.proxy.*
+*.proxy.app
+*.proxy.cloud
+*.proxy.co
+*.proxy.com
+*.proxy.dev
+*.proxy.fun
+*.proxy.info
+*.proxy.io
+*.proxy.live
+*.proxy.me
+*.proxy.net
+*.proxy.online
+*.proxy.org
+*.proxy.pro
+*.proxy.site
+*.proxy.tech
+*.proxy.xyz
+*.proxybrowse.info
+*.proxysite.com
+*.psiphon.ca
+*.psiphon3.com
+*.publicagent.com
+*.purevpn.com
+*.qwant.com
+*.realitykings.com
+*.redtube.com
+*.repl.co
+*.repl.it
+*.replit.com
+*.riseup.net
+*.rule34.xxx
+*.sankakucomplex.com
+*.search.aol.com
+*.search.brave.com
+*.search.yahoo.co.jp
+*.search.yahoo.com
+*.searchee.io
+*.searchencrypt.com
+*.searchtelegram.org
+*.searx.me
+*.searx.space
+*.setupvpn.com
+*.sex.com
+*.seznam.cz
+*.shadowsocks.org
+*.so.com
+*.softether.org
+*.sogou.com
+*.spankbang.com
+*.speedify.com
+*.spysurfing.com
+*.startpage.com
+*.stripchat.com
+*.strongvpn.com
+*.sunporno.com
+*.supervpn.com
+*.surfshark.com
+*.swisscows.com
+*.t-online.me
+*.t.me/s/*
+*.tails.boum.org
+*.tailscale.com
+*.tchannels.me
+*.tdirectory.me
+*.teamskeet.com
+*.teamviewer.com
+*.tele.me
+*.telega.io
+*.telegcrack.com
+*.telegra.ph
+*.telegram-group.com
+*.telegram-store.com
+*.telegram.dog
+*.telegramcatalog.com
+*.telegramchannel.info
+*.telegramchannels.me
+*.telegramchannels.org
+*.telegramdb.org
+*.telegramdir.com
+*.telegramgroup.xyz
+*.telegramgroups.me
+*.telegramic.org
+*.telegramlist.com
+*.telegramrating.ru
+*.telemetr.io
+*.telemetr.me
+*.terabox*
+*.tgchannel.org
+*.tgchannellist.com
+*.tgchannels.me
+*.tgchannels.org
+*.tgclick.com
+*.tgfind.com
+*.tgfinder.ru
+*.tglink.ru
+*.tglinks.ru
+*.tgme.site
+*.tgram.io
+*.tgram.link
+*.tgraph.io
+*.tgsearch.net
+*.tgstat.com
+*.tgstat.ru
+*.tlgg.me
+*.tlgg.ru
+*.tlgrm.eu
+*.tlgrm.io
+*.tlgrm.ru
+*.tnaflix.com
+*.torguard.net
+*.torproject.com
+*.torproject.org
+*.touch-vpn.com
+*.trust.zone
+*.tube8.com
+*.tunnel.*
+*.tunnelbear.com
+*.turbovpn.com
+*.txxx.com
+*.ultrasurf.us
+*.ultravpn.com
+*.unblock.*
+*.unblock.co
+*.unblock.com
+*.unblock.io
+*.unblock.net
+*.unblock.org
+*.unblock.site
+*.unblock.xyz
+*.unblockvideos.com
+*.unblockwebsites.com
+*.upornia.com
+*.v2fly.org
+*.v2ray.com
+*.vercel.app
+*.vjav.com
+*.vpn.*
+*.vpn.app
+*.vpn.co
+*.vpn.com
+*.vpn.dev
+*.vpn.info
+*.vpn.io
+*.vpn.me
+*.vpn.net
+*.vpn.org
+*.vpn.site
+*.vpn.xyz
+*.vpnbook.com
+*.vpngate.net
+*.vtunnel.com
+*.vyprvpn.com
+*.warp.plus
+*.web.app
+*.webcrawler.com
+*.webproxy.to
+*.whoer.net
+*.whonix.org
+*.windscribe.com
+*.windscribe.net
+*.wolframalpha.com
+*.workers.dev
+*.xat.com
+*.xbabe.com
+*.xhamster.com
+*.xnxx.com
+*.xtea.io
+*.xvideos.com
+*.xvideosporn.xxx
+*.xxx
+*.xxx*
+*.yahoo.com
+*.yandex.com
+*.yandex.ru
+*.you.com
+*.youporn.com
+*.yourporn.sexy
+*.zalmos.com
+*.zend2.com
+*.zenmate.com
+*.zerotier.com
+*/search/?lr=*
+*/search/?text=*
+*1.1.1.1*
+*1024tera*
+*1337x*
+*18+*
+*1fichier*
+*21+*
+*360 search*
+*360 سيرش*
+*4-ever-proxy*
+*4everproxy*
+*4shared*
+*a.shorte*
+*adguard*
+*adguard*dns*
+*adk2*
+*admaven*
+*adsterra*
+*adult content*
+*adult entertainment*
+*adult game*
+*adult industry*
+*adult material*
+*adult*
+*adxpansion*
+*affair*
+*aflam*
+*ahrefs yep*
+*aloha*browser*
+*alohabrowser*
+*amateur*
+*amature*
+*anonymous browsing*
+*anonymous surf*
+*anonymous-*
+*anonymouse*
+*any-desk*
+*anydesk*
+*aol search*
+*aol.com*
+*aol.com/search*
+*arab sex*
+*arab-vpn*
+*arabvpn*
+*archive.fo*
+*archive.is*
+*archive.li*
+*archive.md*
+*archive.org/details/*leak*
+*archive.org/web*
+*archive.ph*
+*archive.today*
+*archive.vn*
+*arousal*
+*ashley madison*
+*ask search*
+*ask.com*
+*at-school*
+*at-work*
+*atlas-vpn*
+*atlasvpn*
+*atschool*
+*atwork*
+*avoid*
+*avoidance*
+*b00bs*
+*b2az*
+*badoo*
+*baidu search*
+*baidu*
+*baidu.com*
+*bangbros*
+*base64*
+*bayfiles*
+*bc.vc*
+*bdsm*
+*bebi*
+*beeg*
+*bestoftelegram*
+*bestproxy*
+*betternet*
+*bidgear*
+*bigo live*
+*bing porn*
+*bipass*
+*bit.ly*
+*bitly*
+*blacklabelads*
+*blockaway*
+*blowjob*
+*bondage*
+*bongacams*
+*boobs*
+*borno*
+*bottomless*
+*box.com*
+*brave search*
+*brave*tor*
+*brave.com*
+*bravesearch*
+*bridges.torproject*
+*bumble*
+*bunkr*
+*bunkr.is*
+*bunkr.ru*
+*bunkr.si*
+*bunkr.site*
+*bunkr.su*
+*bunkrrr*
+*by-pass*
+*bypass filter*
+*bypass-*
+*bypass-filter*
+*bypass-firewall*
+*bypassblock*
+*bypasscensor*
+*bypassfilter*
+*bypassit*
+*bypassproxy*
+*bypasssite*
+*bypassweb*
+*bzaz*
+*c0ck*
+*cached-view*
+*cachedview*
+*cam girl*
+*cam model*
+*cam4*
+*camgirl*
+*camsurf*
+*camwhores*
+*camwhores.tv*
+*canada-vpn*
+*canadavpn*
+*casual*
+*casualx*
+*celebrity nude*
+*censorship circumvention*
+*cgi*proxy*
+*change ip*
+*chathub*
+*chatroulette*
+*chaturbate*
+*cheating*
+*chrome vpn*
+*chrome*remote*
+*circumvent*
+*clickadu*
+*clicknupload*
+*clips*
+*clk.sh*
+*cloudflare warp*
+*cloudflare*dns*
+*cloudflare-dns*
+*combot telegram*
+*content creator*
+*coomer*
+*coomer.party*
+*coomer.st*
+*coomer.su*
+*cougar*
+*creampie*
+*croxi*
+*croxy*
+*croxynetwork*
+*croxyproxy*
+*croxyvpn*
+*croxyweb*
+*cumshot*
+*cutt.ly*
+*cyberdrop*
+*cyberfile*
+*cyberghost*
+*d1ck*
+*daftsex*
+*daftsex.com*
+*danbooru*
+*daofile*
+*dating app*
+*daum*
+*daum.net*
+*ddg.gg*
+*ddownload*
+*deepfake porn*
+*depfile*
+*desi*
+*desperate*
+*dick pic*
+*dick*
+*dirty*
+*discord nsfw*
+*discover telegram*
+*discreet*
+*dns resolver*
+*dns-over-https*
+*dns-over-tls*
+*dns-proxy*
+*dnsproxy*
+*dogpile*
+*dogpile.com*
+*dood*
+*doodstream*
+*doublepimp*
+*doujin*
+*down low*
+*download porn*
+*drop.download*
+*dropapk*
+*dropbox*
+*dropbox.com/sh/*
+*dropgalaxy*
+*dubox*
+*duck.com*
+*duckduckgo porn*
+*duckduckgo*
+*duckduckgo.com*
+*duckduckgo.org*
+*e-hentai*
+*e621*
+*easy-access*
+*easy-vpn*
+*easyaccess*
+*easyproxy*
+*easyupload*
+*easyvpn*
+*ecosia*
+*ecosia.com*
+*ecosia.org*
+*egyptian sex*
+*emerald chat*
+*encrypted dns*
+*epic*browser*
+*epicbrowser*
+*eporner*
+*eporner.com*
+*ero-advertising*
+*erome*
+*erome.com*
+*eroscency*
+*eroscency.com*
+*erotic*
+*erotica*
+*escort*
+*evade*
+*ex-load*
+*excite*
+*excite.com*
+*exe.io*
+*exhentai*
+*exoclick*
+*explicit content*
+*explicit*
+*explore channels*
+*expressvpn*
+*fad2i36*
+*fadi36a*
+*fadi7a*
+*fanbus*
+*fansly*
+*fanslyleaks*
+*fapello*
+*fapello.com*
+*fapello.su*
+*fapfolder*
+*fapfolder.club*
+*fast-proxy*
+*fast-vpn*
+*fastproxy*
+*fastvpn*
+*fboom*
+*fboom.me*
+*fbrq*
+*feeld*
+*femax*
+*fetish*
+*file-share*
+*file-up*
+*file-upload*
+*filebin*
+*fileboom*
+*filefactory*
+*filefox*
+*filejoker*
+*filelions*
+*filemoon*
+*filesmonster*
+*filespace*
+*films*
+*filter-bypass*
+*filterbypass*
+*filthy*
+*find telegram*
+*findtubes*
+*fire-wall*
+*firefox vpn*
+*firewall*
+*firewall-bypass*
+*fling*
+*forbidden*
+*forced*
+*foreplay*
+*forever-proxy*
+*foreverproxy*
+*france-vpn*
+*francevpn*
+*free vpn*
+*free*proxy*
+*free-access*
+*free-online-proxy*
+*free-proxy-list*
+*free-vpn*
+*freeaccess*
+*freegate*
+*freeonlineproxy*
+*freeproxy*
+*freeproxylist*
+*freevpn*
+*friends with benefits*
+*fuck*
+*fucking*
+*full frontal*
+*fück*
+*gangbang*
+*gay porn*
+*gdrive.vip*
+*geforce*now*
+*geforcenow*
+*gelbooru*
+*gen-mirror*
+*genmirror*
+*geo unblock*
+*geonode*
+*german-vpn*
+*germanvpn*
+*gg.gg*
+*ghost*
+*gibiru*
+*gibiru.com*
+*gigablast*
+*glype*
+*go-to*
+*gofile*
+*gofile.io*
+*gomho3*
+*gounlimited*
+*graphic content*
+*grindr*
+*grok.com*
+*grok.x.ai*
+*growlr*
+*gulf sex*
+*h game*
+*h-content*
+*h-game*
+*h3ntai*
+*hamster*
+*handjob*
+*hanime*
+*haosou*
+*hardcore*
+*heavy-r*
+*hentai haven*
+*hentai*
+*hexupload*
+*hidden*
+*hide ip*
+*hide-ip*
+*hide-me*
+*hide-my*
+*hide-my-ip*
+*hideass*
+*hideip*
+*hideme*
+*hidemy*
+*hidemyass*
+*hidemyip*
+*hidemyna*
+*hider*
+*hidester*
+*hidex*
+*hideyou*
+*hiding*
+*hilltopads*
+*hinge*
+*hitfile*
+*hola-vpn*
+*holavpn*
+*holla*
+*hookup app*
+*hookup*
+*horny*
+*hot or not*
+*hot scene*
+*hotbot*
+*hotlink*
+*hotspot shield*
+*hotspot-shield*
+*hotspotshield*
+*hottg*
+*https proxy*
+*https*proxy*
+*icedrive.net*
+*icloud*
+*imgur nsfw*
+*incest*
+*incognito vpn*
+*incognito*
+*influencersgonewild*
+*influencersgonewild.com*
+*info.com*
+*infospace*
+*infospace.com*
+*instant-proxy*
+*instantproxy*
+*internet archive*/nsfw*
+*internet freedom*
+*intimacy*
+*intimate*
+*invisible*
+*ip changer*
+*ip hider*
+*iplayer*
+*ipvanish*
+*jetload*
+*juicyads*
+*k-proxy*
+*k2s.cc*
+*kagi search*
+*kagi*
+*kagi.com*
+*katfile*
+*keep2share*
+*kemono*
+*kemono.cr*
+*kemono.party*
+*kemono.su*
+*kess*
+*kickass*
+*kik sex*
+*kinky*
+*koss*
+*kproxy*
+*krakenfiles*
+*kroxi*
+*kroxy*
+*lantern*
+*leak*
+*leaked*
+*leakhub*
+*leakshub*
+*lemon*
+*lesbian*
+*letsupload*
+*link-vertise*
+*link1s*
+*linkvertise*
+*live sex*
+*live.me*
+*livejasmin*
+*lonely*
+*lovoo*
+*lulustream*
+*lumolyksx*
+*lumolyksxs*
+*lycos*
+*lycos.com*
+*lyzem*
+*m7arim*
+*m7rem*
+*ma3ashra*
+*ma4ho3*
+*mail.ru*
+*mamba*
+*marginalia*
+*marginalia.nu*
+*masterfap*
+*masterfap.net*
+*masturbat*
+*mature content*
+*mature*
+*mediafire*
+*meetme*
+*mega*
+*mega-proxy*
+*mega.io*
+*mega.nz*
+*megaproxy*
+*megavpn*
+*metacrawler*
+*metacrawler.com*
+*metager*
+*metager.de*
+*metager.org*
+*mexashare*
+*milf*
+*mirrobox*
+*mirror*
+*mirrors*
+*mixdrop*
+*mms*
+*mojeek*
+*mojeek.co.uk*
+*mojeek.com*
+*momerybox*
+*monetag*
+*monkey*
+*mot3a*
+*mullvad*
+*mwmbl*
+*mwmbl.org*
+*myproxy*
+*n s f w*
+*n.s.f.w*
+*n.u.d.e*
+*naked*
+*naughty*
+*naver search*
+*naver*
+*naver.com*
+*neek*
+*neeva*
+*nelion*
+*nephobox*
+*net-access*
+*netaccess*
+*new-ip-now*
+*newipnow*
+*newproxy*
+*newsophon*
+*nextdns*
+*nexusltl*
+*nhentai*
+*ninja*
+*nitroflare*
+*no strings*
+*noodlemagazine*
+*noodlemagazine.com*
+*nordvpn*
+*nsfw*
+*nude scene*
+*nude*
+*nudes leaked*
+*nudes*
+*nudevista*
+*nudostar*
+*nudostar.com*
+*nudostar.tv*
+*obfuscation*
+*ofleaks*
+*omegle*
+*onclkds*
+*one.one.one.one*
+*onedrive*
+*onedrive.live.com*
+*onesearch*
+*onesearch.com*
+*onion browser*
+*onion*
+*onlyfans leaked*
+*onlyfans*
+*onlyfansleaks*
+*open-access*
+*open-vpn*
+*openaccess*
+*opendns*
+*openvpn*
+*opera*vpn*
+*opera-vpn*
+*operavpn*
+*orgasm*
+*ouo.io*
+*ouo.press*
+*p o r n*
+*p.o.r.n*
+*p0rn*
+*p0rno*
+*parsec*
+*patreon leaked*
+*pcloud*
+*pcloud.com*
+*penis*
+*perplexity*
+*perplexity.ai*
+*phantom*
+*phind*
+*phind.com*
+*php*proxy*
+*pimpbunny*
+*pimpbunny.com*
+*pinterest nsfw*
+*piratebay*
+*pixeldrain*
+*pixeldrain.com*
+*pkjnetaccess*
+*plain-proxies*
+*plainproxies*
+*plugrush*
+*po rn*
+*poop*
+*popads*
+*popcash*
+*porn star*
+*porn torrent*
+*porn*
+*porncomix*
+*pornhub*
+*porno*
+*pornstar*
+*pornstb*
+*poxy*
+*pr0n*
+*presearch*
+*presearch.com*
+*private browsing vpn*
+*private browsing*
+*private photos*
+*private videos*
+*privateinternetaccess*
+*privatevpn*
+*proksi*
+*propellerads*
+*prostitute*
+*proton-vpn*
+*protonvpn*
+*provocative*
+*prox-free*
+*prox-tube*
+*proxfree*
+*proxi*
+*proxia*
+*proxie*
+*proxies*
+*proxium*
+*proxtube*
+*proxxie*
+*proxxy*
+*proxy server*
+*proxy site*
+*proxy*
+*proxy*.*
+*proxy*addon*
+*proxy*extension*
+*proxy*free*
+*proxy*https*
+*proxy*ssl*
+*proxy*web*
+*proxy-*
+*proxy-list*
+*proxy-lists*
+*proxy-nova*
+*proxy2*
+*proxy4*
+*proxy[0-9]*
+*proxybrowse*
+*proxyfree*
+*proxyium*
+*proxylist*
+*proxylists*
+*proxynova*
+*proxyone*
+*proxyonline*
+*proxys*
+*proxyserver*
+*proxysite*
+*proxysurf*
+*proxyum*
+*proxyweb*
+*psi-phon*
+*psifon*
+*psiphon*
+*public telegram*
+*pure*
+*pussy*
+*pvssv*
+*quad9*
+*quick-access*
+*quick-proxy*
+*quickaccess*
+*quickproxy*
+*qwant*
+*qwant.com*
+*qwant.fr*
+*qwantjunior*
+*r.search.yahoo.com*
+*racaty*
+*rambler*
+*rambler.ru*
+*rape*
+*rapidgator*
+*rarbg*
+*raunchy*
+*realsrv*
+*recurbate*
+*recurbate.net*
+*reddit gone wild*
+*reddit nsfw*
+*reddit r slash*
+*reddit*
+*redtube*
+*reimage*
+*remote-desktop*
+*remotedesktop*
+*rosefile*
+*rule 34*
+*rule34*
+*s e x*
+*s.e.x*
+*s_e_x*
+*safe-vpn*
+*safevpn*
+*saudi sex*
+*school*proxy*
+*school-unblock*
+*schoolunblock*
+*scrolller*
+*scrolller.com*
+*scruff*
+*se7s*
+*se8s*
+*search encrypt*
+*search telegram*
+*search.aol.com*
+*search.brave*
+*search.brave.com*
+*search.com*
+*search.yahoo.com*
+*searchencrypt*
+*searx*
+*searx.space*
+*searxng*
+*searxng.org*
+*secret relationship*
+*secret*
+*secure dns*
+*secure-vpn*
+*securevpn*
+*seduce*
+*seduction*
+*seeking*
+*seex*
+*seks*
+*send nudes*
+*sendspace*
+*sensitive content*
+*sensual*
+*sex comic*
+*sex game*
+*sex scene*
+*sex tape*
+*sexual content*
+*sexual*
+*sexx*
+*sexy video*
+*sexy-egirls*
+*seznam*
+*seznam.cz*
+*shadow-socks*
+*shadow-tech*
+*shadow.tech*
+*shadowsocks*
+*shadowtech*
+*shagle*
+*shah2a*
+*shahwa*
+*shar2*
+*share-file*
+*sharmota*
+*shemale*
+*short-url*
+*short.io*
+*shorte.st*
+*shorturl*
+*simpcity*
+*simpcity.su*
+*simple-vpn*
+*simpleproxy*
+*simplevpn*
+*siphon*
+*site:t.me*
+*site:telegram.dog*
+*skout*
+*smart-dns*
+*smartdns*
+*snap-vpn*
+*snapchat sex*
+*snapvpn*
+*so.com*
+*socks proxy*
+*socks5*
+*soft-ether*
+*softcore*
+*softether*
+*sogou*
+*sogou.com*
+*solidfiles*
+*sowar*
+*spankbang*
+*speed-vpn*
+*speedvpn*
+*spicy content*
+*spicy*
+*spys*
+*ssh tunnel*
+*ssh-tunnel*
+*ssl*proxy*
+*ssl-tunnel*
+*sslproxy*
+*ssltunnel*
+*sstunnel*
+*startpage*
+*startpage.com*
+*startpage.org*
+*stealth*
+*steamy*
+*streamlare*
+*streamtape*
+*streamwish*
+*stripchat*
+*stunnel*
+*subreddit adult*
+*subyshare*
+*sugar baby*
+*sugar daddy*
+*sugar mama*
+*suggestive*
+*supervpn*
+*surfshark*
+*swar*
+*swisscows*
+*swisscows.com*
+*sxyprn*
+*sxyprn.com*
+*sxyprn.net*
+*sync.com*
+*t.co*
+*t.ly*
+*t.me/+*
+*t.me/joinchat/*
+*t.me/s/*
+*t33z*
+*ta36*
+*tagged*
+*takefile*
+*tasr2b*
+*tasrib*
+*team-viewer*
+*teamviewer*
+*teen sex*
+*teez*
+*teleg*
+*telegago*
+*telegcrack*
+*telegram analytics*
+*telegram bot finder*
+*telegram catalog*
+*telegram channel*
+*telegram channels*
+*telegram database*
+*telegram directory*
+*telegram discover*
+*telegram explore*
+*telegram finder*
+*telegram group*
+*telegram index*
+*telegram preview*
+*telegram public*
+*telegram search*
+*telegram sex*
+*telegram.dog/*
+*telegramchannels*
+*telegramdb*
+*telegramic*
+*telegramindex*
+*telemetr*
+*tenta*browser*
+*tera box*
+*terabox app*
+*terabox download*
+*terabox*
+*tezfiles*
+*tg channel*
+*tg group*
+*tgram*
+*tgrm*
+*tgstat*
+*theproxy*
+*thotsbay*
+*thotsbay.com*
+*thotsbay.tv*
+*thunder-vpn*
+*thundervpn*
+*tinder*
+*tinyurl*
+*tits*
+*tlgr*
+*tlgrm*
+*tnaflix*
+*tnaflix.com*
+*topless*
+*topproxy*
+*tor browser*
+*tor-bridge*
+*tor-project*
+*torbridge*
+*torproject*
+*torrent porn*
+*touch-vpn*
+*touchvpn*
+*trafficfactory*
+*trafficjunky*
+*tranny*
+*translate.google*
+*trojan vpn*
+*trojan*
+*tsreeb*
+*tube-unblock*
+*tube8*
+*tubeunblock*
+*tumblr nsfw*
+*tunel*
+*tunnel*
+*tunnel-*
+*tunnel-bear*
+*tunnel-to*
+*tunnelbear*
+*tunneling*
+*tunnelling*
+*tunnelto*
+*turbo-vpn*
+*turbobit*
+*turbovpn*
+*twitter nsfw*
+*twitter.com*
+*ubiqfile*
+*uk-vpn*
+*ukvpn*
+*ultrasurf*
+*ultravpn*
+*umolyacap*
+*un-block*
+*un-blocker*
+*unblock sites*
+*unblock*
+*unblock*extension*
+*unblock*youtube*
+*unblock-*
+*unblock-streaming*
+*unblock-youtube*
+*unblockaccess*
+*unblockall*
+*unblocker*
+*unblockfacebook*
+*unblockit*
+*unblockmy*
+*unblockninja*
+*unblocksite*
+*unblocksites*
+*unblockstreaming*
+*unblockthat*
+*unblockthis*
+*unblockvideo*
+*unblockvideos*
+*unblockweb*
+*unblockwebsite*
+*unblockyoutube*
+*unblok*
+*uncensored*
+*uncut*
+*unlok*
+*upfiles*
+*upload-file*
+*uploaded*
+*uploaded.net*
+*uploadhaven*
+*uploady*
+*upstream*
+*uptobox*
+*urban-vpn*
+*urbanvpn*
+*url*decode*
+*url*encode*
+*us-vpn*
+*usvpn*
+*v-p-n*
+*v-tunnel*
+*v2ray*
+*vagina*
+*vedeyo*
+*vibeflocewx*
+*vibeflodpgp*
+*videobin*
+*vidguard*
+*vidlox*
+*vidmoly*
+*vidoza*
+*vipn*
+*viral*
+*virtual private network*
+*vmess*
+*voe.sx*
+*voluumtrk*
+*vpn download*
+*vpn extension*
+*vpn free*
+*vpn porn*
+*vpn*
+*vpn*addon*
+*vpn*extension*
+*vpn*fast*
+*vpn*free*
+*vpn*hola*
+*vpn*master*
+*vpn*private*
+*vpn*safe*
+*vpn*secure*
+*vpn*snap*
+*vpn*speed*
+*vpn*super*
+*vpn*thunder*
+*vpn*touch*
+*vpn*turbo*
+*vpn*ultra*
+*vpn*unlimited*
+*vpn-*
+*vpn-list*
+*vpn[0-9]*
+*vpnfree*
+*vpnlist*
+*vpnmaster*
+*vpnproxy*
+*vtunnel*
+*vyprvpn*
+*wa6s*
+*warp vpn*
+*warp*
+*wdupload*
+*web proxy*
+*web*proxy*
+*web-access*
+*web-tunnel*
+*webaccess*
+*webcache.googleusercontent.com*
+*webcam sex*
+*webcrawler*
+*webcrawler.com*
+*webproxy*
+*webtunnel*
+*wetransfer*
+*whatsapp sex*
+*whoer*
+*wiby*
+*wiby.me*
+*windscribe*
+*wire-guard*
+*wireguard*
+*work*proxy*
+*x x x*
+*x-rated*
+*x-vpn*
+*x.ai*
+*x.com nsfw*
+*x.com*
+*x.x.x*
+*xhamster*
+*xnxx*
+*xubster*
+*xvideo*
+*xvideos*
+*xvpn*
+*xx x*
+*xxx arab*
+*xxx torrent*
+*xxx*
+*ya.ru*
+*yadi.sk*
+*yahoo search*
+*yahoo*
+*yahoo.com/search*
+*yandex disk*
+*yandex porn*
+*yandex*
+*yandex.by*
+*yandex.com*
+*yandex.com.tr*
+*yandex.kz*
+*yandex.ru*
+*yep.com*
+*yippy*
+*you.com*
+*you.com/search*
+*youcom*
+*youporn*
+*yourproxy*
+*youtube*proxy*
+*youtube*unblock*
+*youtube-proxy*
+*youtube-unblocked*
+*youtubeproxy*
+*youtubeunblocked*
+*yt-proxy*
+*yt-unblock*
+*ytproxy*
+*ytunblock*
+*zeropark*
+*zippyshare*
+*прокси*
+*أرقام بنات*
+*أفلام إباحية*
+*أفلام سكس*
+*أونلي فانز*
+*أي أو إل*
+*أير*
+*إباحي*
+*إباحية*
+*إثارة*
+*إس إس إس تيك*
+*إغراء*
+*إغواء*
+*إكس تي إيه*
+*إكسايت*
+*إكسيت*
+*إم دبليو إم بي إل*
+*إنفو دوت كوم*
+*إيكوزيا*
+*إيكوسيا*
+*اباحي*
+*اباحية*
+*ابحث عن*
+*ابن الـ*
+*اثارة*
+*ادخلي*
+*اس اس اس تيك*
+*استمناء*
+*اسك دوت كوم*
+*اعتداء جنسي*
+*اغتصاب*
+*اغراء*
+*اغواء*
+*افلام اباحية*
+*افلام سكس*
+*اكس تي ايه*
+*اكسايت*
+*اكستيايه*
+*الحاجة دي*
+*انستا سكس*
+*انفو دوت كوم*
+*اي او ال*
+*ايكوزيا*
+*ايكوسيا*
+*بايخة*
+*بايدو*
+*بتاعة*
+*بتلعب*
+*بث مباشر سكس*
+*بحث 360*
+*بحث أي أو إل*
+*بحث إنكربت*
+*بحث اي او ال*
+*بحث بايدو*
+*بحث برايف*
+*بحث بريف*
+*بحث تليجرام*
+*بحث تي جرام*
+*بحث تيجرام*
+*بحث تيليجرام*
+*بحث رامبلر*
+*بحث سيزنم*
+*بحث في تليجرام*
+*بحث في تيليجرام*
+*بحث كوانت*
+*بحث مارجيناليا*
+*بحث نافير*
+*بحث نايفر*
+*بحث ياندكس*
+*بحث ياهو*
+*بدون التزام*
+*بدون قيود*
+*برايف سيرش*
+*بروكسي*
+*بروکسی*
+*بري سيرتش*
+*بري سيرش*
+*بريسيرش*
+*بريف سيرش*
+*بزاز*
+*بزازي*
+*بغي*
+*بنات ليل*
+*بنت الـ*
+*بهيمة*
+*بوت زلزال*
+*بورن*
+*بورنو*
+*بيدوفيليا*
+*بيربلكسيتي ايه آي*
+*بيربلكسيتي*
+*بيربليكسيتي ايه آي*
+*بيربليكسيتي*
+*بيلعب*
+*تجاوز الحظر*
+*تحرش*
+*تحميل افلام*
+*تحول جنسي*
+*تخطي الحجب*
+*تدليك جنسي*
+*ترانس*
+*تسريب*
+*تسريبات*
+*تصفح خاص*
+*تعارف*
+*تعري*
+*تلجور*
+*تلدير*
+*تليجاجو*
+*تليجرام إندكس*
+*تليجرام بنات*
+*تليجرام جروب*
+*تليجرام دي بي*
+*تليجرام سكس*
+*تليجرام سيرش*
+*تليجرام كاتالوج*
+*تليجكراك*
+*تنزيل*
+*تورنت*
+*تي إل جور*
+*تي إل دير*
+*تي ال جور*
+*تي ال دير*
+*تي جرام سيرش*
+*تي جرام*
+*تي جي إستات*
+*تي جي ستات*
+*تي جي ستاتس*
+*تي مي*
+*تي ميه*
+*تيجرام سيرش*
+*تيجرام*
+*تيجي ستات*
+*تيجيستات*
+*تيك توك سكس*
+*تيل دير*
+*تيلجرام سيرش*
+*تيلجور*
+*تيلي جاجو*
+*تيلي قاقو*
+*تيلي متر*
+*تيلي ميت*
+*تيلي ميتر*
+*تيليج كراك*
+*تيليجاجو*
+*تيليجرام إندكس*
+*تيليجرام انديكس*
+*تيليجرام بحث*
+*تيليجرام تشانلز*
+*تيليجرام تشانلس*
+*تيليجرام جروب*
+*تيليجرام جروبس*
+*تيليجرام دبي*
+*تيليجرام دي بي*
+*تيليجرام ديتابيس*
+*تيليجرام سيرش إنجن*
+*تيليجرام سيرش*
+*تيليجرام فهرس*
+*تيليجرام قنوات*
+*تيليجرام كاتالوج*
+*تيليجرام كتالوج*
+*تيليجرام مجموعات*
+*تيليجرام محرك بحث*
+*تيليجراميدي بي*
+*تيليجكراك*
+*تيليجيكراك*
+*تيليمتر*
+*تيليميتر*
+*تيليگاگو*
+*تيميه*
+*ثدي*
+*ج.ن.س*
+*جروب نيك*
+*جروبات واتس*
+*جماع*
+*جنس ثالث*
+*جنس*
+*جي بيرو*
+*جيبيرو*
+*جِبيرو*
+*حرامي*
+*حمارة*
+*حميمية*
+*حيوان*
+*حيوانة*
+*خاص جدا*
+*خربان*
+*خربانة*
+*خصية*
+*خيانة زوجية*
+*داعر*
+*داعرة*
+*داك داك جو*
+*داك داك غو*
+*داكداكجو*
+*دحداح*
+*دردشة جنسية*
+*دعارة*
+*دك دك جو*
+*دك دك غو*
+*دكدكجو*
+*دليل تيليجرام*
+*دوج بايل*
+*دوجبايل*
+*دوغ بايل*
+*ديوث*
+*راقصة*
+*رامبلر*
+*رخيصة*
+*رذيلة*
+*رقم بنات*
+*رقم بنت*
+*ريديت عربي*
+*زب*
+*زباوي*
+*زبر*
+*زبي*
+*زنا*
+*زنى*
+*س ك س*
+*س.ك.س*
+*ساقطة*
+*ستارت بيج*
+*ستارتبيج*
+*سحاق*
+*سخنة*
+*سس ستيك*
+*سـ كـ س*
+*سكس أطفال*
+*سكس تونسي*
+*سكس تيليجرام*
+*سكس جزائري*
+*سكس حيوانات*
+*سكس خليجي*
+*سكس سعودي*
+*سكس سوري*
+*سكس عراقي*
+*سكس عرب*
+*سكس عربي*
+*سكس لبناني*
+*سكس مباشر*
+*سكس مصري*
+*سكس مغربي*
+*سكس*
+*سناب بنات*
+*سناب سكس*
+*سوشال فايندر*
+*سوشيال فايندر*
+*سوشيال فايندير*
+*سوشيل فايندر*
+*سويس كاوز*
+*سويس كوز*
+*سويسكاوز*
+*سويسكاوس*
+*سير اكس*
+*سيرإكس*
+*سيرش إنكربت*
+*سيرش انكربت*
+*سيرش تيليجرام*
+*سيرش دوت كوم*
+*سيركس إن جي*
+*سيركس ان جي*
+*سيركس*
+*سيركسنج*
+*سيزنام*
+*سيزنم*
+*سڪس*
+*شات أوربت*
+*شات جنسي*
+*شاذ*
+*شذوذ*
+*شرموط*
+*شرموطة*
+*شهوات*
+*شهواني*
+*شهوة*
+*صداقة وأكثر*
+*صور +18*
+*صور خاصة*
+*صور سكس*
+*ضيقة*
+*طيز*
+*طيزي*
+*عادة سرية*
+*عاري*
+*عارية*
+*عاهرة*
+*عري كامل*
+*عري*
+*عشق جسدي*
+*علاقة جنسية*
+*علاقة حميمة*
+*علاقة سرية*
+*علاقة مفتوحة*
+*غريزة*
+*فاجر*
+*فاجرة*
+*فاحشة*
+*فاضح*
+*فتح المحجوب*
+*فرج*
+*فضائح*
+*فضيحة*
+*فك الحظر*
+*في بي ان*
+*فيديو +18*
+*فيديو سكس*
+*فيديوهات +18*
+*فيديوهات خاصة*
+*فيديوهات سكس*
+*فيند*
+*فِند*
+*قحبة*
+*قروب سكس*
+*قروبات تليجرام*
+*قضيب*
+*قناة سكس*
+*قنوات تليجرام*
+*قنوات تيليجرام*
+*قواد*
+*كاجي سيرش*
+*كاجي*
+*كاغي سيرش*
+*كاغي*
+*كام جنسي*
+*كام فور*
+*كاميرا جنسية*
+*كانالات تيليجرام*
+*كانالز تيليجرام*
+*كس*
+*كساوي*
+*كسر حجب*
+*كسها*
+*كسي*
+*كوانت*
+*كومنت جرام*
+*كومنتجرام*
+*كومينت جرام*
+*لايزم*
+*لايزيم*
+*لايف جاسمين*
+*لايف سكس*
+*لايكوس*
+*لحس*
+*لعق*
+*للكبار فقط*
+*لواط*
+*ليزم*
+*ليزيم*
+*ليكوس*
+*مارجيناليا*
+*ماسكة*
+*متزوج ابحث*
+*متزوجة ابحث*
+*متصفح بريف*
+*متعة جنسية*
+*متناك*
+*متناكة*
+*مثلي*
+*مثلية*
+*مجموعات تيليجرام*
+*محارم*
+*محتوى بالغ*
+*محتوى حساس*
+*محتوى خاص*
+*محتوى للكبار*
+*محرك 360*
+*محرك بحث برايف*
+*محرك بحث بريف*
+*محرك بحث تليجرام*
+*محرك بحث تيليجرام*
+*محرك بريف*
+*محروم*
+*محرومة*
+*محظور*
+*مخل بالآداب*
+*مساج سكسي*
+*مضاجعة*
+*معاشرة*
+*ممارسة الجنس*
+*ممارسة*
+*ممنوع*
+*منحرف*
+*منحرفة*
+*منوي*
+*منيوك*
+*منيوكة*
+*مهبل*
+*مهبول*
+*مهبولة*
+*مو جيك*
+*موجيك*
+*موقع آسك*
+*مولع*
+*مولعة*
+*مويمبل*
+*ميتا جير*
+*ميتا كراولر*
+*ميتاجير*
+*ميتاغير*
+*ميتالكراولر*
+*ميتاچير*
+*ميتاکراولر*
+*ميتـا كراولر*
+*ن ي ك*
+*ن.ي.ك*
+*نافير*
+*ناك*
+*نايفر*
+*نـ يـ ك*
+*نودز*
+*نياكة*
+*نيك عرب*
+*نيك عربي*
+*نيك مصري*
+*نيك*
+*نيكة*
+*نيكني*
+*نيكها*
+*نيڪ*
+*هايج*
+*هايجة*
+*هتك عرض*
+*واتس بنات*
+*واتس سكس*
+*واسعة*
+*وان سيرش*
+*وانسيرش*
+*وايبي*
+*وحيدة*
+*وسخة*
+*وضع خاص*
+*ولفرام ألفا*
+*ولفرام الفا*
+*ون سيرش*
+*ونسيرش*
+*ويب كراولر*
+*ويبكراولر*
+*يا ابن*
+*يا بنت*
+*يا كلب*
+*يا كلبة*
+*ياندكس*
+*يانديكس*
+*ياهو سيرش*
+*يب سيرش*
+*يو دوت كوم*
+*يو كوم*
+*يو.كوم*
+*يودوتكوم*
+*ييِب سيرش*
+*يِب سيرش*
+*٣٦٠ بحث*
+*٣٦٠ سيرش*
+*پروکسی*
+*ڪس*
+*代理*
+*短縮*
+18videosz.com
+24porn.com
+3movs.com
+4everproxy.com
+4everproxy.net
+4tube.com
+access.*
+adulttime.com
+alljapanesepass.com
+allofgfs.com
+alohatube.com
+alotporn.com
+alphaporno.com
+anon-v.com
+anonymizer.*
+anonymous.*
+anydesk.*
+anyshemale.com
+aol.com
+arabianchicks.com
+ask.com
+avn.com
+baberotica.com
+babes.com
+badoinkvr.com
+baidu.com
+bang.com
+bangbrosnetwork.com
+bdsmstreak.com
+beeg.com
+best-paypornsites.com
+bestpornbabes.com
+besttrannypornsites.com
+bestxxxsites.com
+bigtits.com
+bipass.*
+blacked.com
+block-away.*
+blockaway.*
+bobs-tube.com
+boysfood.com
+braincash.com
+brave.com
+brazzers.com
+brokestraightboys.com
+bypass.*
+camhub.cc
+cams.com
+cliphunter.com
+clips4sale.com
+croxi.*
+croxy-free.*
+croxy-proxy.*
+croxy.*
+croxy.app
+croxy.click
+croxy.cloud
+croxy.co
+croxy.com
+croxy.dev
+croxy.digital
+croxy.fun
+croxy.info
+croxy.io
+croxy.link
+croxy.live
+croxy.me
+croxy.net
+croxy.network
+croxy.online
+croxy.org
+croxy.pro
+croxy.rocks
+croxy.services
+croxy.site
+croxy.space
+croxy.store
+croxy.tech
+croxy.today
+croxy.world
+croxy.xyz
+croxy.zone
+croxynet.*
+croxypro.*
+croxyproxy.co
+croxyproxy.com
+croxyproxy.info
+croxyproxy.io
+croxyproxy.me
+croxyproxy.net
+croxyproxy.online
+croxyproxy.org
+croxyproxy.rocks
+croxyproxy.site
+croxyproxy.xyz
+czechvr.com
+dansmovies.com
+daredorm.com
+data:text/html*
+daum.net
+ddfnetwork.com
+ddg.gg
+definebabe.com
+deviantclip.com
+digitalplayground.com
+dogpile.com
+dorcelclub.com
+drtuber.com
+duck.com
+duckduckgo.com
+duckduckgo.org
+easy-bypass.*
+easy-unblock.*
+ecosia.com
+ecosia.org
+eggporncomics.com
+empflix.com
+entireweb.com
+eporner.com
+eroxia.com
+evilangel.com
+excite.com
+expressvpn.com
+extension://hebpjnnclppdnfghdnmhgdljmjpfhggk/popup.html
+extremetube.com
+fakehub.com
+fakku.net
+fantasti.cc
+fapster.xxx
+fast*vpn*
+fast-unblock.*
+filterbypass.com
+filterbypass.me
+filterbypass.net
+forhertube.com
+free*vpn*
+free-croxy.*
+free-proxy.*
+free-unblock.*
+free-vpn.*
+free18.net
+free[0-9]*proxy*
+freepornfull.com
+fuq.com
+fux.com
+gayfuror.com
+gaymaletube.com
+gaytube.com
+gelbooru.com
+genmirror.*
+gfrevenge.com
+gibiru.com
+gigablast.com
+girlsway.com
+gotgayporn.com
+grok.com
+gutenberg.org
+h2porn.com
+handjobhub.com
+hardsextube.com
+hclips.com
+helixstudios.net
+hentai-foundry.com
+hentaicore.org
+hentaigasm.com
+hentaihaven.org
+hentaipulse.com
+hide-me.*
+hide.*
+hide.co
+hide.com
+hide.io
+hide.me
+hide.me*
+hide.net
+hideme.*
+hidemyass.com
+hidester.com
+hidester.net
+hidester.org
+hola*vpn*
+hotbot.com
+hotgoo.com
+hotsouthindiansex.com
+hustler.com
+iknowthatgirl.com
+imlive.com
+info.com
+infospace.com
+ipvanish.com
+ixquick.com
+ixxx.com
+iyalc.com
+japanhdv.com
+javascript:*
+javhd.com
+jerkmate.com
+jizzhut.com
+jizzonline.com
+join?invite=*
+justusboys.com
+kagi.com
+keezmovies.com
+kinkyfamily.com
+kporno.com
+kproxy.*
+kproxy.com
+kproxy.net
+kproxy.org
+kroxi.*
+kroxy.*
+le-vpn.com
+lesbian8.com
+letsjerk.is
+lovehomeporn.com
+lubetube.com
+luckycrush.live
+lukol.com
+lycos.com
+madthumbs.com
+mail.ru
+manporn.xxx
+marginalia.nu
+master*vpn*
+maxim.com
+maxiporn.com
+metacrawler.com
+metager.de
+metager.org
+metaporn.com
+mofosex.com
+mogosnetwork.com
+mojeek.co.uk
+mojeek.com
+motherless.com
+moviefap.com
+mwmbl.org
+my*proxy*
+my-croxy.*
+my-proxy.*
+my-unblock.*
+my-vpn.*
+myporngay.com
+mythav.com
+mywebsearch.com
+naver.com
+netfapx.com
+newsensations.com
+nonktube.com
+nordvpn.com
+nubiles.net
+nuvid.com
+onesearch.com
+online-proxy.*
+orgasm.com
+peekier.com
+perfectgirls.net
+perfectgonzo.com
+perplexity.ai
+pervclips.com
+phind.com
+playboy.com
+porcore.com
+porn.com
+porn300.xxx
+porn7.xxx
+porndroids.com
+pornerbros.com
+pornfuror.com
+pornhd.com
+pornheed.com
+pornhost.com
+pornhub.com
+pornhubselect.com
+pornmate.com
+pornmd.com
+pornmilo.com
+pornotube.com
+pornoxo.com
+pornprosnetwork.com
+pornrabbit.com
+pornrox.com
+pornstarnetwork.com
+porntube.com
+pornxio.com
+presearch.com
+private*vpn*
+proksi.*
+proporn.com
+proxfree.com
+proxi.*
+proxie.*
+proxy-*.*
+proxy.*
+proxy?.*
+proxy[0-9]*.*
+proxyium.*
+proxysite.co
+proxysite.com
+proxysite.io
+proxysite.net
+proxysite.org
+proxysite.site
+proxysite.xyz
+psiphon.*
+psiphon.ca
+psiphon.com
+psiphon.net
+psiphon.org
+punishbang.com
+punishtube.com
+quick-bypass.*
+quick-unblock.*
+qwant.com
+qwant.fr
+qwantjunior.com
+r.search.yahoo.com
+rambler.ru
+realitykings.com
+redgifs.com
+redporn.xxx
+redtube.com
+resolve?domain=*
+rk.com
+rockettube.com
+rude.com
+safe*vpn*
+sankakucomplex.com
+search.aol.com
+search.brave.com
+search.com
+search.yahoo.com
+searchencrypt.com
+searchnow.com
+searx.me
+searx.space
+searxng.org
+secure*vpn*
+sexlikereal.com
+sexvid.xxx
+seznam.cz
+shameless.com
+shemailhd.sex
+shooshtime.com
+slutload.com
+slutroulette.com
+snap*vpn*
+so.com
+sogou.com
+spankbang.com
+spankwire.com
+speed*vpn*
+ssl-proxy.*
+startpage.com
+startpage.org
+stripchat.com
+submityourflicks.com
+submityourtapes.com
+sunporno.com
+super*vpn*
+swisscows.com
+t.me
+tag-walk.com
+teamskeet.com
+teamviewer.*
+telesearch.info
+teleteg.com
+tg-search-*
+tg-search-engine-tg-group-link-search.en.softonic.com
+tgdb.*
+tgdb.org
+the*proxy*
+the-vpn.*
+theporndude.com
+thumbzilla.com
+thunder*vpn*
+tiava.com
+tinyeve.com
+tnaflix.com
+toolur.com
+topfreepornvideos.com
+toppornsites.com
+touch*vpn*
+tranny.one
+translate.google.*/*&u=*
+translate.google.com/*&u=*
+translate.googleusercontent.com
+tube8.com
+tubegalore.com
+tubegals.com
+tubev.sex
+tunnel.*
+turbo*vpn*
+twilightsex.com
+twistysnetwork.com
+txxx.com
+ultra*vpn*
+unblock-*.*
+unblock.*
+unblock[0-9]*.*
+unblocker.*
+unblok.*
+unlimited*vpn*
+videosz.com
+viewdesisex.com
+virtualtaboo.com
+vixen.com
+vpn.*
+vpn[0-9]*.*
+vpnbook.com
+vporn.com
+vrcock.com
+vrcosplay.com
+vrporn.com
+vrsmash.com
+wankzvr.com
+watch-my-gf.com
+watch-my-gf.me
+watchindianporn.net
+watchmyexgf.net
+watchmygf.me
+watchmygf.tv
+web-proxy.*
+web.telegram.org/a
+webcrawler.com
+whoer.*
+whoer.com
+whoer.net
+whoer.org
+wiby.me
+wolframalpha.com
+x.com
+xbabe.com
+xhamster.com
+xmoviesforyou.com
+xnxx.com
+xnxxhamster.net
+xpaja.net
+xtea.io
+xtube.com
+xvideos.com
+xxvids.net
+xxx.com
+xxxaporn.com
+xxxbunker.com
+xxxvideos247.com
+yahoo.com
+yandex.by
+yandex.com
+yandex.com.tr
+yandex.kz
+yandex.ru
+yep.com
+yippy.com
+you.com
+youjizz.com
+youporn.com
+youporngay.com
+your*proxy*
+your-vpn.*
+youtube.com/shorts
+youtubeproxy.site
+yuvutu.com
+zalmos.*
+zalmos.com
+zalmos.net
+zalmos.org
+zapmeta.com
+zbporn.com
+zend2.com
+zpn.im
+zzcartoon.com
+zzgays.com

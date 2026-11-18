@@ -1,0 +1,399 @@
+package com.petal.browser.ui.components
+
+import android.content.Context
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import com.petal.browser.ui.kit.TextField
+import com.petal.browser.ui.kit.IconButton
+import com.petal.browser.ui.kit.FilledTonalButton
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.preference.PreferenceManager
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.petal.browser.ui.theme.PetalExpressiveTheme
+import com.petal.browser.ui.containment.PetalGroup
+import com.petal.browser.ui.containment.PetalGroupIconBadge
+import com.petal.browser.ui.containment.PetalGroupListRow
+import com.petal.browser.ui.containment.liquidGlassChrome
+import com.petal.browser.ui.containment.petalGroupSurfaceColor
+import com.petal.browser.ui.containment.isLiquidGlassEnabled
+import org.json.JSONArray
+import org.json.JSONObject
+import androidx.compose.ui.res.stringResource
+import com.petal.browser.R
+
+data class SearchEngineItem(
+    val index: Int,
+    val name: String,
+    val description: String,
+    val url: String,
+    val custom: Boolean = false,
+    val suggestUrl: String = ""
+)
+
+val availableSearchEngines = listOf(
+    SearchEngineItem(0, "Google", "Fast and comprehensive global search", "https://www.google.com/search?client=firefox-b-m&q=%s"),
+    SearchEngineItem(1, "DuckDuckGo", "Privacy search without tracking", "https://duckduckgo.com/?q=%s"),
+    SearchEngineItem(2, "Startpage", "Privacy-focused Google results", "https://www.startpage.com/sp/search?query=%s"),
+    SearchEngineItem(3, "Brave Search", "Independent privacy-focused search index", "https://search.brave.com/search?q=%s"),
+    SearchEngineItem(4, "Bing", "Microsoft search and discovery", "https://www.bing.com/search?q=%s"),
+    SearchEngineItem(5, "SearXNG", "Open-source metasearch engine", "https://searx.space/search?q=%s"),
+    SearchEngineItem(6, "Qwant", "Privacy-oriented European search", "https://www.qwant.com/?q=%s"),
+    SearchEngineItem(7, "Ecosia", "Search engine that supports climate action", "https://www.ecosia.org/search?q=%s")
+)
+
+val torraysSearchEngine = SearchEngineItem(
+    8,
+    "Torrays",
+    "Open-source, ad-free torrent search index",
+    "https://torrays.vercel.app/?q=%s"
+)
+
+fun getStandardSearchEngines(context: Context): List<SearchEngineItem> {
+    val sp = PreferenceManager.getDefaultSharedPreferences(context)
+    val isTorraysEnabled = sp.getBoolean("petal_builtin_torrays", true)
+    return if (isTorraysEnabled) {
+        availableSearchEngines + torraysSearchEngine
+    } else {
+        availableSearchEngines
+    }
+}
+
+private const val CUSTOM_ENGINES_KEY = "sp_custom_search_engines"
+private const val CUSTOM_ID_START = 1000
+
+fun getCustomSearchEngines(context: Context): List<SearchEngineItem> {
+    val raw = PreferenceManager.getDefaultSharedPreferences(context).getString(CUSTOM_ENGINES_KEY, "[]") ?: "[]"
+    return try {
+        val json = JSONArray(raw)
+        buildList {
+            for (i in 0 until json.length()) {
+                val item = json.optJSONObject(i) ?: continue
+                val id = item.optInt("id", CUSTOM_ID_START + i)
+                val name = item.optString("name").trim()
+                val url = item.optString("url").trim()
+                val suggestUrl = item.optString("suggestUrl", "").trim()
+                if (name.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))) {
+                    add(SearchEngineItem(id, name, "Custom search engine", url, true, suggestUrl))
+                }
+            }
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
+
+private fun saveCustomSearchEngines(context: Context, engines: List<SearchEngineItem>) {
+    val json = JSONArray()
+    engines.forEach {
+        json.put(JSONObject().apply {
+            put("id", it.index)
+            put("name", it.name)
+            put("url", it.url)
+            if (it.suggestUrl.isNotEmpty()) {
+                put("suggestUrl", it.suggestUrl)
+            }
+        })
+    }
+    PreferenceManager.getDefaultSharedPreferences(context).edit().putString(CUSTOM_ENGINES_KEY, json.toString()).apply()
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PetalSearchEngineSheet(
+    visible: Boolean,
+    onDismissRequest: () -> Unit,
+    initialIndex: Int? = null,
+    onConfirm: (Int) -> Unit
+) {
+    if (visible) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        com.petal.browser.ui.containment.PetalSheet(
+            onDismissRequest = onDismissRequest,
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            PetalSearchEngineSheetContent(
+                initialIndex = initialIndex,
+                onConfirm = {
+                    onConfirm(it)
+                    onDismissRequest()
+                },
+                onCancel = onDismissRequest
+            )
+        }
+    }
+}
+
+fun allSearchEngines(context: Context): List<SearchEngineItem> =
+    getStandardSearchEngines(context) + getCustomSearchEngines(context)
+
+object PetalSearchEngineBridge {
+    private var activeComposeView: ComposeView? = null
+
+    @JvmStatic
+    fun showSearchEngineDialog(activity: ComponentActivity, onDismiss: Runnable? = null) {
+        activity.runOnUiThread {
+            try {
+                activeComposeView?.let {
+                    (it.parent as? android.view.ViewGroup)?.removeView(it)
+                }
+                activeComposeView = null
+
+                val rootView = activity.findViewById<android.view.ViewGroup>(android.R.id.content) ?: return@runOnUiThread
+                com.petal.browser.predictive.PetalContentSnapshot.capture(rootView)
+
+                var composeView: ComposeView? = null
+                fun cleanup() {
+                    com.petal.browser.predictive.PetalContentSnapshot.clear()
+                    composeView?.let { cv ->
+                        (cv.parent as? android.view.ViewGroup)?.removeView(cv)
+                        if (activeComposeView == cv) {
+                            activeComposeView = null
+                        }
+                    }
+                    onDismiss?.run()
+                }
+
+                composeView = ComposeView(activity).apply {
+                    setViewTreeLifecycleOwner(activity)
+                    setViewTreeViewModelStoreOwner(activity)
+                    setViewTreeSavedStateRegistryOwner(activity)
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+                    setContent {
+                        val hostSource = activity.findViewById<android.view.View>(com.petal.browser.R.id.main)
+                            ?: activity.findViewById(android.R.id.content)
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            com.petal.browser.ui.glass.LocalPetalGlassSource provides hostSource
+                        ) {
+                            PetalExpressiveTheme {
+                                PetalSearchEngineSheet(
+                                    visible = true,
+                                    onDismissRequest = { cleanup() },
+                                    onConfirm = { index ->
+                                        PreferenceManager.getDefaultSharedPreferences(activity).edit()
+                                            .putString("sp_search_engine", index.toString())
+                                            .putBoolean("sp_search_engine_chosen", true)
+                                            .putBoolean("searchEngineSwitch", false)
+                                            .apply()
+                                        cleanup()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                activeComposeView = composeView
+                rootView.addView(
+                    composeView,
+                    android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PetalSearchEngineSheetContent(
+    initialIndex: Int? = null,
+    onConfirm: (Int) -> Unit,
+    onCancel: () -> Unit
+) {
+    val context = LocalContext.current
+    val sp = remember { PreferenceManager.getDefaultSharedPreferences(context) }
+    var selectedIndex by remember(initialIndex) {
+        mutableIntStateOf(initialIndex ?: sp.getString("sp_search_engine", "0")?.toIntOrNull() ?: 0)
+    }
+    var customEngines by remember { mutableStateOf(getCustomSearchEngines(context)) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingEngine by remember { mutableStateOf<SearchEngineItem?>(null) }
+
+    if (showAddDialog || editingEngine != null) {
+        val editing = editingEngine
+        var name by remember(editing?.index) { mutableStateOf(editing?.name ?: "") }
+        var url by remember(editing?.index) { mutableStateOf(editing?.url ?: "") }
+        var suggestUrl by remember(editing?.index) { mutableStateOf(editing?.suggestUrl ?: "") }
+        var error by remember(editing?.index) { mutableStateOf<String?>(null) }
+
+        com.petal.browser.ui.containment.PetalAlertDialog(
+            onDismissRequest = { showAddDialog = false; editingEngine = null },
+            title = if (editing == null) "Add Search Engine" else "Edit Search Engine",
+            confirmText = if (editing == null) "Add" else "Save",
+            onConfirm = {
+                val normalized = url.trim()
+                val normalizedSuggest = suggestUrl.trim()
+                val validScheme = normalized.startsWith("https://") || normalized.startsWith("http://")
+                val hasToken = normalized.contains("%s") || normalized.contains("{searchTerms}")
+                if (name.trim().isEmpty()) error = "Enter a name."
+                else if (!validScheme) error = "Search URL must start with http:// or https://."
+                else if (!hasToken) error = "Add %s or {searchTerms} to the URL."
+                else {
+                    val id = editing?.index ?: ((customEngines.maxOfOrNull { it.index } ?: (CUSTOM_ID_START - 1)) + 1)
+                    val item = SearchEngineItem(id, name.trim(), "Custom search engine", normalized, true, normalizedSuggest)
+                    customEngines = if (editing == null) customEngines + item else customEngines.map { if (it.index == id) item else it }
+                    saveCustomSearchEngines(context, customEngines)
+                    selectedIndex = id
+                    showAddDialog = false
+                    editingEngine = null
+                }
+            },
+            dismissText = stringResource(R.string.ui_cancel),
+            onDismiss = { showAddDialog = false; editingEngine = null },
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(stringResource(R.string.ui_name)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextField(
+                        value = url,
+                        onValueChange = { url = it },
+                        label = { Text(stringResource(R.string.ui_search_url)) },
+                        supportingText = { Text(stringResource(R.string.ui_use_s_or_searchterms_where)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextField(
+                        value = suggestUrl,
+                        onValueChange = { suggestUrl = it },
+                        label = { Text(stringResource(R.string.ui_search_suggest_url)) },
+                        supportingText = { Text(stringResource(R.string.ui_search_suggest_url_summary)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        )
+    }
+
+    val engines = remember(context, customEngines) { getStandardSearchEngines(context) + customEngines }
+    val isGlass = com.petal.browser.ui.containment.isLiquidGlassEnabled("sp_liquid_glass_containments")
+    val sheetShape = BottomSheetDefaults.ExpandedShape
+
+    Surface(
+        shape = sheetShape,
+        color = if (isGlass) petalGroupSurfaceColor() else MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth().liquidGlassChrome(shape = sheetShape, enabled = isGlass)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp).padding(bottom = 24.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                PetalGroupIconBadge(Icons.Rounded.Search, size = 48.dp)
+                Column {
+                    Text(stringResource(R.string.ui_choose_default_search_engine), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.ui_built_in_and_unlimited_custom), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            PetalGroup(rowCount = engines.size, modifier = Modifier.fillMaxWidth()) { index, position ->
+                val engine = engines[index]
+                val isSelected = engine.index == selectedIndex
+                val badgeIcon = when (engine.name.lowercase()) {
+                    "google" -> Icons.Rounded.Search
+                    "duckduckgo" -> Icons.Rounded.Shield
+                    "startpage" -> Icons.Rounded.VpnKey
+                    "brave search", "brave" -> Icons.Rounded.Security
+                    "bing" -> Icons.Rounded.Search
+                    "searxng", "searx" -> Icons.Rounded.ManageSearch
+                    "qwant" -> Icons.Rounded.TravelExplore
+                    "ecosia" -> Icons.Rounded.Eco
+                    "torrays" -> Icons.Rounded.CloudDownload
+                    else -> if (engine.custom) Icons.Rounded.Tune else Icons.Rounded.Search
+                }
+                PetalGroupListRow(
+                    position = position,
+                    selected = isSelected,
+                    onClick = { selectedIndex = engine.index },
+                    leading = { PetalGroupIconBadge(badgeIcon, size = 40.dp, iconSize = 20.dp) },
+                    content = {
+                        Text(engine.name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(engine.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailing = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (engine.custom) {
+                        IconButton(onClick = { editingEngine = engine }) { Icon(Icons.Rounded.Edit, stringResource(R.string.ui_edit)) }
+                        IconButton(onClick = {
+                            customEngines = customEngines.filterNot { it.index == engine.index }
+                            saveCustomSearchEngines(context, customEngines)
+                            if (selectedIndex == engine.index) selectedIndex = 0
+                        }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.ui_delete)) }
+                            }
+                            RadioButton(selected = isSelected, onClick = { selectedIndex = engine.index })
+                        }
+                    },
+                )
+            }
+
+            FilledTonalButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.ui_add_custom_search_engine), fontWeight = FontWeight.SemiBold)
+            }
+
+            com.petal.browser.ui.containment.PetalActionRow(
+                confirmText = stringResource(R.string.ui_use_selected_engine),
+                onConfirm = { onConfirm(selectedIndex) },
+                dismissText = stringResource(R.string.ui_cancel),
+                onDismiss = onCancel
+            )
+        }
+    }
+}

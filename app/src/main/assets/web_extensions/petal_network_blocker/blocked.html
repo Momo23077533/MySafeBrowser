@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Blocked — تم حظر الموقع</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1b1f2a;
+      --muted: #5a6478;
+      --accent: #c62828;
+      --accent-soft: rgba(198, 40, 40, 0.12);
+      --primary: #1a73e8;
+      --border: rgba(27, 31, 42, 0.12);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111318;
+        --card: #1b1f27;
+        --text: #eef1f7;
+        --muted: #9aa4b8;
+        --accent: #ef5350;
+        --accent-soft: rgba(239, 83, 80, 0.16);
+        --primary: #8ab4f8;
+        --border: rgba(238, 241, 247, 0.12);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 460px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px 24px;
+      text-align: center;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    }
+    .shield {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 18px;
+      border-radius: 18px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: 700;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.45rem;
+      line-height: 1.3;
+    }
+    .ar {
+      direction: rtl;
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0 0 14px;
+    }
+    p {
+      margin: 6px 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .ar-desc {
+      direction: rtl;
+      margin-bottom: 22px;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    button {
+      flex: 1 1 140px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-back {
+      background: transparent;
+      color: var(--text);
+    }
+    .btn-home {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: transparent;
+    }
+    @media (prefers-color-scheme: dark) {
+      .btn-home {
+        color: #111318;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="shield" aria-hidden="true">&#128737;</div>
+    <h1>Access Blocked</h1>
+    <div class="ar">تم حظر الوصول إلى هذه الصفحة</div>
+    <p>This page or search query is restricted by SafeBrowser family protection.</p>
+    <p class="ar-desc">تم حظر هذا الموقع أو عبارة البحث بواسطة نظام الحماية العائلية في SafeBrowser.</p>
+    <div class="actions">
+      <button type="button" class="btn-back" id="backBtn">Back / رجوع</button>
+      <button type="button" class="btn-home" id="homeBtn">Home / الرئيسية</button>
+    </div>
+  </main>
+  <script>
+    (function () {
+      var backBtn = document.getElementById("backBtn");
+      var homeBtn = document.getElementById("homeBtn");
+      if (backBtn) {
+        backBtn.addEventListener("click", function () {
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            window.location.replace("https://www.google.com/?safe=active");
+          }
+        });
+      }
+      if (homeBtn) {
+        homeBtn.addEventListener("click", function () {
+          window.location.replace("https://www.google.com/?safe=active");
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

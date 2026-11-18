@@ -1,0 +1,769 @@
+package com.petal.browser.media
+
+import com.petal.browser.ui.theme.ExpressiveButtonShape
+import android.content.Context
+import android.media.AudioManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Cast
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.FitScreen
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
+import androidx.compose.material.icons.rounded.Subtitles
+import com.petal.browser.media.subtitle.PetalSubtitleEngine
+import com.petal.browser.media.subtitle.SubtitleCue
+import com.petal.browser.media.subtitle.PetalSubtitleConfigSheet
+import com.petal.browser.ui.kit.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.preference.PreferenceManager
+import com.petal.browser.R
+import com.petal.browser.haptics.PetalHapticEngine
+import com.petal.browser.ui.components.PetalLiquidIconButton
+import com.petal.browser.ui.containment.liquidGlassChrome
+import com.petal.browser.ui.containment.petalGroupSurfaceColor
+import kotlinx.coroutines.delay
+import kotlin.math.abs
+import androidx.compose.material3.Icon
+
+/**
+ * Petal Video Player Overlay (Completely Rebuilt)
+ * Features:
+ * - Dynamic Style switching (Material 3 Expressive vs Liquid Glass) via Settings (`sp_native_player_style`)
+ * - REX-Player Inspired Controls: Slide-to-Unlock, Animated Double-Tap Seek Waves, Spring Volume/Brightness Vertical Sliders
+ * - Soul Browser Web-Media Bidirectional Sync (Seek, Play/Pause, Speed, Aspect, Duration)
+ * - Pure Jetpack Compose with zero lag & complete haptic feedback integration
+ */
+@Composable
+fun PetalVideoPlayerOverlay(
+    title: String,
+    isPlaying: Boolean,
+    positionMs: Long,
+    durationMs: Long,
+    playbackSpeed: Float,
+    onPlayPauseToggle: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onFastForward: () -> Unit,
+    onRewind: () -> Unit,
+    onSpeedChange: (Float) -> Unit,
+    onAspectRatioToggle: ((String) -> Unit)? = null,
+    onPipClick: () -> Unit,
+    onCloseFullscreen: () -> Unit,
+    videoUrl: String? = null,
+    onCastClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val sp = remember(context) { PreferenceManager.getDefaultSharedPreferences(context) }
+    val isLiquidGlass = remember(sp) {
+        sp.getString("sp_native_player_style", "LIQUID_GLASS") == "LIQUID_GLASS"
+    }
+
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
+    val maxVolume = remember { audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15 }
+
+    val topClearance = WindowInsets.statusBars.union(WindowInsets.displayCutout)
+        .asPaddingValues().calculateTopPadding().coerceAtLeast(16.dp)
+    val bottomClearance = WindowInsets.navigationBars.asPaddingValues()
+        .calculateBottomPadding().coerceAtLeast(16.dp)
+
+    // Player State
+    var areControlsVisible by remember { mutableStateOf(true) }
+    var isControlsLocked by remember { mutableStateOf(false) }
+    var currentSpeed by remember { mutableFloatStateOf(playbackSpeed) }
+    var showSpeedSelector by remember { mutableStateOf(false) }
+    var showAspectSheet by remember { mutableStateOf(false) }
+    var currentAspectModeId by remember { mutableStateOf("FIT") }
+
+    // Video Brightness State
+    var videoBrightness by remember { mutableFloatStateOf(1.0f) }
+
+    // Gesture HUD Overlays
+    var volumeHudLevel by remember { mutableIntStateOf(-1) }
+    var brightnessHudLevel by remember { mutableFloatStateOf(-1f) }
+    var doubleTapSeekText by remember { mutableStateOf<String?>(null) }
+    var doubleTapIsForward by remember { mutableStateOf(true) }
+    var aspectRatioHudText by remember { mutableStateOf<String?>(null) }
+    // Subtitle & 2x Speed Boost State
+    var showSubtitleSheet by remember { mutableStateOf(false) }
+    var loadedSubtitles by remember { mutableStateOf<List<SubtitleCue>>(emptyList()) }
+    var subtitleFileName by remember { mutableStateOf<String?>(null) }
+    var subtitleDelayMs by remember { mutableStateOf(0L) }
+    var subtitleFontSizeSp by remember { mutableFloatStateOf(18f) }
+    var subtitleTextColor by remember { mutableStateOf(Color.White) }
+    var isLongPressBoostActive by remember { mutableStateOf(false) }
+    var speedBeforeBoost by remember { mutableFloatStateOf(playbackSpeed) }
+
+    val hasSubSheet = showSpeedSelector || showAspectSheet || showSubtitleSheet || isControlsLocked
+    androidx.activity.compose.BackHandler(enabled = hasSubSheet) {
+        if (showSpeedSelector) showSpeedSelector = false
+        else if (showAspectSheet) showAspectSheet = false
+        else if (showSubtitleSheet) showSubtitleSheet = false
+        else if (isControlsLocked) isControlsLocked = false
+    }
+
+    // Auto-hide controls after 4 seconds of inactivity when playing and not locked
+    LaunchedEffect(areControlsVisible, isPlaying, isControlsLocked) {
+        if (areControlsVisible && isPlaying && !isControlsLocked) {
+            delay(4000)
+            areControlsVisible = false
+            showSpeedSelector = false
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // ── 1. Gesture Layer (Captures taps, double-taps, brightness & volume drags) ──
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(isControlsLocked) {
+                    detectTapGestures(
+                        onTap = {
+                            areControlsVisible = !areControlsVisible
+                            if (!areControlsVisible) showSpeedSelector = false
+                        },
+                        onDoubleTap = { offset ->
+                            if (isControlsLocked) return@detectTapGestures
+                            val width = size.width
+                            if (offset.x < width * 0.4f) {
+                                onRewind()
+                                doubleTapIsForward = false
+                                doubleTapSeekText = "-10s"
+                                PetalHapticEngine.getInstance(context).playClick(context)
+                            } else if (offset.x > width * 0.6f) {
+                                onFastForward()
+                                doubleTapIsForward = true
+                                doubleTapSeekText = "+10s"
+                                PetalHapticEngine.getInstance(context).playClick(context)
+                            } else {
+                                onPlayPauseToggle()
+                                PetalHapticEngine.getInstance(context).playClick(context)
+                            }
+                        },
+                        onLongPress = {
+                            if (!isControlsLocked && isPlaying) {
+                                speedBeforeBoost = currentSpeed
+                                isLongPressBoostActive = true
+                                onSpeedChange(2.0f)
+                                PetalHapticEngine.getInstance(context).playHeavyClick(context)
+                            }
+                        },
+                        onPress = {
+                            try {
+                                awaitRelease()
+                            } finally {
+                                if (isLongPressBoostActive) {
+                                    isLongPressBoostActive = false
+                                    onSpeedChange(speedBeforeBoost)
+                                }
+                            }
+                        }
+                    )
+                }
+                .pointerInput(isControlsLocked) {
+                    if (isControlsLocked) return@pointerInput
+                    detectDragGestures(
+                        onDragEnd = {
+                            volumeHudLevel = -1
+                            brightnessHudLevel = -1f
+                        },
+                        onDragCancel = {
+                            volumeHudLevel = -1
+                            brightnessHudLevel = -1f
+                        },
+                    ) { change, dragAmount ->
+                        val width = size.width
+                        val x = change.position.x
+                        val deltaY = -dragAmount.y
+
+                        if (x < width * 0.45f) {
+                            // Left side vertical swipe: Brightness
+                            val newBrightness = (videoBrightness + (deltaY / 600f)).coerceIn(0.1f, 1.0f)
+                            videoBrightness = newBrightness
+                            brightnessHudLevel = newBrightness
+                        } else if (x > width * 0.55f) {
+                            // Right side vertical swipe: Volume
+                            audioManager?.let { am ->
+                                val currentVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                val step = if (deltaY > 0) 1 else -1
+                                if (abs(deltaY) > 18f) {
+                                    val newVol = (currentVol + step).coerceIn(0, maxVolume)
+                                    am.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                    volumeHudLevel = newVol
+                                }
+                            }
+                        }
+                    }
+                },
+        )
+
+        // ── 2. Screen Brightness Dimmer Overlay ──────────────────────────────
+        if (videoBrightness < 1.0f) {
+            val dimAlpha = ((1.0f - videoBrightness) * 0.85f).coerceIn(0f, 0.85f)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = dimAlpha)),
+            )
+        }
+
+        // ── 3. REX-Style Double-Tap Seek Animation HUD ──────────────────────
+        LaunchedEffect(doubleTapSeekText) {
+            if (doubleTapSeekText != null) {
+                delay(750)
+                doubleTapSeekText = null
+            }
+        }
+        if (doubleTapSeekText != null) {
+            Box(
+                modifier = Modifier.align(if (doubleTapIsForward) Alignment.CenterEnd else Alignment.CenterStart)
+                    .padding(horizontal = 48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    PetalDoubleTapSeekTriangles(isForward = doubleTapIsForward)
+                    Text(
+                        text = doubleTapSeekText ?: "",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+
+        // ── 3.5. 2x Speed Boost HUD Indicator (Soul / YouTube Style) ────────
+        if (isLongPressBoostActive) {
+            val boostShape = ExpressiveButtonShape
+            Surface(
+                shape = boostShape,
+                color = Color.Black.copy(alpha = 0.75f),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = topClearance + 20.dp)
+                    .clip(boostShape)
+                    .then(
+                        if (isLiquidGlass) Modifier.liquidGlassChrome(boostShape, enabled = true, sheenIntensity = 0.9f, pressFx = true)
+                        else Modifier
+                    )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FastForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "2X SPEED",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+
+        // ── 3.6. Subtitle Overlay Renderer ───────────────────────────────────
+        if (loadedSubtitles.isNotEmpty()) {
+            val activeCue = remember(positionMs, subtitleDelayMs, loadedSubtitles) {
+                PetalSubtitleEngine.getActiveCue(loadedSubtitles, positionMs, subtitleDelayMs)
+            }
+            if (activeCue != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = if (areControlsVisible) bottomClearance + 76.dp else bottomClearance + 24.dp)
+                        .padding(horizontal = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = activeCue.text,
+                        color = subtitleTextColor,
+                        fontSize = subtitleFontSizeSp.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = androidx.compose.ui.text.TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = Color.Black,
+                                offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                                blurRadius = 4f
+                            )
+                        ),
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
+        // ── 4. Aspect Ratio Indicator ────────────────────────────────────────
+        LaunchedEffect(aspectRatioHudText) {
+            if (aspectRatioHudText != null) {
+                delay(1000)
+                aspectRatioHudText = null
+            }
+        }
+        if (aspectRatioHudText != null) {
+            val shape = ExpressiveButtonShape
+            val hudModifier = if (isLiquidGlass) {
+                Modifier
+                    .background(petalGroupSurfaceColor(), shape)
+                    .liquidGlassChrome(shape, enabled = true, sheenIntensity = 0.9f)
+            } else {
+                Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f), shape)
+            }
+            Surface(
+                shape = shape,
+                color = Color.Transparent,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .clip(shape)
+                    .then(hudModifier)
+                    .padding(16.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FitScreen,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = aspectRatioHudText ?: "",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                    )
+                }
+            }
+        }
+
+        // ── 5. Vertical Brightness & Volume HUD ─────────────────────────────
+        if (brightnessHudLevel >= 0f) {
+            PetalBrightnessHud(
+                brightness = brightnessHudLevel,
+                isLiquidGlass = isLiquidGlass,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 28.dp),
+            )
+        }
+
+        if (volumeHudLevel >= 0) {
+            PetalVolumeHud(
+                volume = volumeHudLevel,
+                maxVolume = maxVolume,
+                isLiquidGlass = isLiquidGlass,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 28.dp),
+            )
+        }
+
+        // ── 6. Locked State: Slide to Unlock Capsule ────────────────────────
+        if (isControlsLocked) {
+            AnimatedVisibility(
+                visible = areControlsVisible,
+                enter = fadeIn(androidx.compose.material3.MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit = fadeOut(androidx.compose.material3.MaterialTheme.motionScheme.fastEffectsSpec()),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = bottomClearance + 24.dp),
+            ) {
+                PetalSlideToUnlock(
+                    isLiquidGlass = isLiquidGlass,
+                    onUnlock = {
+                        isControlsLocked = false
+                        areControlsVisible = true
+                        PetalHapticEngine.getInstance(context).playClick(context)
+                    },
+                )
+            }
+        }
+
+        // ── 7. Primary Interactive Controls (Top Bar, Center Play, Bottom Bar) ──
+        AnimatedVisibility(
+            visible = areControlsVisible && !isControlsLocked,
+            enter = fadeIn(androidx.compose.material3.MaterialTheme.motionScheme.defaultEffectsSpec()),
+            exit = fadeOut(androidx.compose.material3.MaterialTheme.motionScheme.fastEffectsSpec()),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Top & Bottom Gradient Scrims for readability
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Black.copy(alpha = 0.70f), Color.Transparent),
+                            ),
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)),
+                            ),
+                        ),
+                )
+
+                // ── Top Bar: Title, Speed, Aspect, Lock, PiP, Cast, Close ──
+                val topBarShape = RoundedCornerShape(24.dp)
+                Surface(
+                    shape = topBarShape,
+                    color = if (isLiquidGlass) petalGroupSurfaceColor() else Color.Black.copy(alpha = 0.55f),
+                    shadowElevation = 0.dp,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .padding(top = topClearance, start = 16.dp, end = 16.dp)
+                        .then(if (isLiquidGlass) Modifier.liquidGlassChrome(topBarShape, enabled = true, pressFx = false) else Modifier)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f).padding(end = 12.dp),
+                            ) {
+                                PetalLiquidIconButton(
+                                    onClick = onCloseFullscreen,
+                                    size = 48.dp,
+                                    contentDescription = stringResource(R.string.ui_close),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = title.ifBlank { stringResource(R.string.app_name) },
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                // Speed jumping capsule
+                                PetalSpeedCapsule(
+                                    speed = currentSpeed,
+                                    isLiquidGlass = isLiquidGlass,
+                                    onClick = { showSpeedSelector = !showSpeedSelector },
+                                )
+
+                                // Aspect Ratio
+                                PetalLiquidIconButton(
+                                    onClick = { showAspectSheet = true },
+                                    size = 38.dp,
+                                    contentDescription = stringResource(R.string.ui_aspect_ratio),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FitScreen,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+
+                                // Subtitles & Sync
+                                PetalLiquidIconButton(
+                                    onClick = { showSubtitleSheet = true },
+                                    size = 48.dp,
+                                    contentDescription = stringResource(R.string.ui_subtitles),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Subtitles,
+                                        contentDescription = null,
+                                        tint = if (loadedSubtitles.isNotEmpty()) MaterialTheme.colorScheme.primary else Color.White,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+
+                                // Lock Player Controls
+                                PetalLiquidIconButton(
+                                    onClick = {
+                                        isControlsLocked = true
+                                        PetalHapticEngine.getInstance(context).playClick(context)
+                                    },
+                                    size = 48.dp,
+                                    contentDescription = stringResource(R.string.ui_player_locked),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Lock,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+
+                                // Cast Button
+                                if (onCastClick != null) {
+                                    PetalLiquidIconButton(
+                                        onClick = { onCastClick.invoke() },
+                                        size = 48.dp,
+                                        contentDescription = stringResource(R.string.ui_cast_to_device),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Cast,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                }
+
+                                // Picture in Picture
+                                PetalLiquidIconButton(
+                                    onClick = onPipClick,
+                                    size = 48.dp,
+                                    contentDescription = stringResource(R.string.ui_pip),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PictureInPictureAlt,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            }
+                        }
+
+                    // Horizontal Speed Quick Selector Bar
+                    AnimatedVisibility(visible = showSpeedSelector) {
+                        val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
+                        val selectorShape = ExpressiveButtonShape
+                        val selectorModifier = if (isLiquidGlass) {
+                            Modifier
+                                .background(Color.Black.copy(alpha = 0.55f), selectorShape)
+                                .liquidGlassChrome(selectorShape, enabled = true, sheenIntensity = 0.8f)
+                        } else {
+                            Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f), selectorShape)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .clip(selectorShape)
+                                .then(selectorModifier)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                speeds.forEach { spd ->
+                                    val isSelected = currentSpeed == spd
+                                    val pillShape = ExpressiveButtonShape
+                                    val pillModifier = if (isSelected) {
+                                        if (isLiquidGlass) {
+                                            Modifier
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f), pillShape)
+                                                .liquidGlassChrome(pillShape, enabled = true, sheenIntensity = 0.9f, pressFx = true)
+                                        } else {
+                                            Modifier.background(MaterialTheme.colorScheme.primary, pillShape)
+                                        }
+                                    } else {
+                                        Modifier.background(Color.Transparent, pillShape)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(pillShape)
+                                            .then(pillModifier)
+                                            .clickable {
+                                                currentSpeed = spd
+                                                onSpeedChange(spd)
+                                                showSpeedSelector = false
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    ) {
+                                        Text(
+                                            text = "${spd}x",
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Center Action Controls (PixelPlayer Material 3 Expressive Animated Controls) ──
+            PetalAnimatedPlaybackControls(
+                isPlayingProvider = { isPlaying },
+                onPrevious = onRewind,
+                onPlayPause = onPlayPauseToggle,
+                onNext = onFastForward,
+                previousIcon = Icons.Rounded.FastRewind,
+                nextIcon = Icons.Rounded.FastForward,
+                previousContentDescription = stringResource(R.string.ui_rewind_10s),
+                nextContentDescription = stringResource(R.string.ui_forward_10s),
+                isLiquidGlass = isLiquidGlass,
+                height = 76.dp,
+                colorOtherButtons = if (isLiquidGlass) petalGroupSurfaceColor() else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.65f),
+                colorPlayPause = MaterialTheme.colorScheme.primary,
+                tintPlayPauseIcon = MaterialTheme.colorScheme.onPrimary,
+                tintOtherIcons = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .widthIn(max = 320.dp)
+                    .padding(horizontal = 24.dp),
+            )
+
+                // ── Bottom Seekbar & Controls Area ──────────────────────────
+                val bottomPillShape = RoundedCornerShape(28.dp)
+                Surface(
+                    shape = bottomPillShape,
+                    color = if (isLiquidGlass) petalGroupSurfaceColor() else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.75f),
+                    shadowElevation = 0.dp,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = bottomClearance)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .then(if (isLiquidGlass) Modifier.liquidGlassChrome(bottomPillShape, enabled = true, pressFx = false) else Modifier),
+                ) {
+                    Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                        PetalSeekbarWithTimers(
+                            positionMs = positionMs,
+                            durationMs = durationMs,
+                            isPaused = !isPlaying,
+                            onSeek = onSeek,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Aspect Ratio Sheet ──────────────────────────────────────────────
+        if (showAspectSheet) {
+            PetalAspectRatioSheet(
+                currentModeId = currentAspectModeId,
+                onSelectMode = { option ->
+                    currentAspectModeId = option.id
+                    aspectRatioHudText = option.label
+                    onAspectRatioToggle?.invoke(option.id)
+                    showAspectSheet = false
+                },
+                onDismissRequest = { showAspectSheet = false },
+            )
+        }
+
+        // ── Subtitle & Sync Sheet ────────────────────────────────────────────
+        if (showSubtitleSheet) {
+            PetalSubtitleConfigSheet(
+                isLiquidGlass = isLiquidGlass,
+                subtitleDelayMs = subtitleDelayMs,
+                subtitleFontSizeSp = subtitleFontSizeSp,
+                subtitleTextColor = subtitleTextColor,
+                onSubtitleDelayChange = { subtitleDelayMs = it },
+                onSubtitleFontSizeChange = { subtitleFontSizeSp = it },
+                onSubtitleTextColorChange = { subtitleTextColor = it },
+                onSubtitlesLoaded = { cues, name ->
+                    loadedSubtitles = cues
+                    subtitleFileName = name
+                    showSubtitleSheet = false
+                },
+                onClearSubtitles = {
+                    loadedSubtitles = emptyList()
+                    subtitleFileName = null
+                    showSubtitleSheet = false
+                },
+                hasActiveSubtitles = loadedSubtitles.isNotEmpty(),
+                activeSubtitleName = subtitleFileName,
+                onDismissRequest = { showSubtitleSheet = false }
+            )
+        }
+    }
+}

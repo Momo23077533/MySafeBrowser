@@ -1,0 +1,18 @@
+{
+  "manifest_version": 2,
+  "name": "Petal Consent Manager",
+  "version": "2.0.0",
+  "description": "Seamlessly dismisses GDPR/CCPA cookie banners and rejects non-essential tracking",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["consent.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": false
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": { "id": "petal-consent-manager@petalbrowser.app" }
+  }
+}

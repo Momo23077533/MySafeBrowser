@@ -1,0 +1,246 @@
+package com.petal.browser.compose.settings.screens
+import com.petal.browser.ui.components.scrollMotionBlur
+
+import com.petal.browser.ui.containment.PetalSettingsSection
+import com.petal.browser.ui.containment.PetalSheet
+
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import com.petal.browser.ui.kit.TextField
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.petal.browser.compose.settings.viewmodel.SearchHomeSettingsViewModel
+import com.petal.browser.ui.components.ExpressiveHeader
+import com.petal.browser.ui.components.M3ExpressiveVariableBackground
+import com.petal.browser.ui.components.PetalSearchEngineSheetContent
+import com.petal.browser.ui.components.ScrollFadeRow
+import com.petal.browser.ui.components.allSearchEngines
+import androidx.compose.ui.res.stringResource
+import com.petal.browser.R
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchHomeSettingsScreen(
+    onNavigateBack: () -> Unit,
+    onNavigateToAddressBarSettings: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    targetHighlightItemId: String? = null,
+    viewModel: SearchHomeSettingsViewModel = hiltViewModel()
+) {
+    val searchEngineIndex by viewModel.searchEngineIndex.collectAsStateWithLifecycle()
+    val homepageType by viewModel.homepageType.collectAsStateWithLifecycle()
+    val customHomepageUrl by viewModel.customHomepageUrl.collectAsStateWithLifecycle()
+    val backgroundPlay by viewModel.backgroundPlay.collectAsStateWithLifecycle()
+    val autoPip by viewModel.autoPip.collectAsStateWithLifecycle()
+    val forceDarkMode by viewModel.forceDarkMode.collectAsStateWithLifecycle()
+    val enableLiveSuggestions by viewModel.enableLiveSuggestions.collectAsStateWithLifecycle()
+    val searchSuggestionsPrivate by viewModel.searchSuggestionsPrivate.collectAsStateWithLifecycle()
+    val showSearchEngineSelectorInOmnibox by viewModel.showSearchEngineSelectorInOmnibox.collectAsStateWithLifecycle()
+
+    SearchHomeSettingsScreenContent(
+        searchEngineIndex = searchEngineIndex,
+        homepageType = homepageType,
+        customHomepageUrl = customHomepageUrl,
+        backgroundPlay = backgroundPlay,
+        autoPip = autoPip,
+        forceDarkMode = forceDarkMode,
+        enableLiveSuggestions = enableLiveSuggestions,
+        searchSuggestionsPrivate = searchSuggestionsPrivate,
+        showSearchEngineSelectorInOmnibox = showSearchEngineSelectorInOmnibox,
+        onSearchEngineIndexChange = viewModel::setSearchEngineIndex,
+        onHomepageTypeChange = viewModel::setHomepageType,
+        onCustomHomepageUrlChange = viewModel::setCustomHomepageUrl,
+        onBackgroundPlayChange = viewModel::setBackgroundPlay,
+        onAutoPipChange = viewModel::setAutoPip,
+        onForceDarkModeChange = viewModel::setForceDarkMode,
+        onEnableLiveSuggestionsChange = viewModel::setEnableLiveSuggestions,
+        onSearchSuggestionsPrivateChange = viewModel::setSearchSuggestionsPrivate,
+        onShowSearchEngineSelectorInOmniboxChange = viewModel::setShowSearchEngineSelectorInOmnibox,
+        onNavigateBack = onNavigateBack,
+        onNavigateToAddressBarSettings = onNavigateToAddressBarSettings,
+        targetHighlightItemId = targetHighlightItemId,
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchHomeSettingsScreenContent(
+    searchEngineIndex: String,
+    homepageType: String,
+    customHomepageUrl: String,
+    backgroundPlay: Boolean,
+    autoPip: Boolean,
+    forceDarkMode: Boolean,
+    enableLiveSuggestions: Boolean,
+    searchSuggestionsPrivate: Boolean,
+    showSearchEngineSelectorInOmnibox: Boolean,
+    onSearchEngineIndexChange: (String) -> Unit,
+    onHomepageTypeChange: (String) -> Unit,
+    onCustomHomepageUrlChange: (String) -> Unit,
+    onBackgroundPlayChange: (Boolean) -> Unit,
+    onAutoPipChange: (Boolean) -> Unit,
+    onForceDarkModeChange: (Boolean) -> Unit,
+    onEnableLiveSuggestionsChange: (Boolean) -> Unit,
+    onSearchSuggestionsPrivateChange: (Boolean) -> Unit,
+    onShowSearchEngineSelectorInOmniboxChange: (Boolean) -> Unit,
+    onNavigateBack: () -> Unit,
+    onNavigateToAddressBarSettings: () -> Unit = {},
+    targetHighlightItemId: String? = null,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var showEngineSheet by remember { mutableStateOf(false) }
+
+    val isPipSupported = remember(context) {
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+    }
+
+    if (showEngineSheet) {
+        PetalSheet(
+            onDismissRequest = { showEngineSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            PetalSearchEngineSheetContent(
+                initialIndex = searchEngineIndex.toIntOrNull() ?: 0,
+                onConfirm = { idx ->
+                    onSearchEngineIndexChange(idx.toString())
+                    showEngineSheet = false
+                },
+                onCancel = { showEngineSheet = false }
+            )
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        M3ExpressiveVariableBackground(pageSeed = "search_home_settings")
+
+        com.petal.browser.ui.components.PetalGlassHeaderLayout(
+            modifier = Modifier.fillMaxSize(),
+            header = { headerModifier, headerBackdrop ->
+                ExpressiveHeader(
+                    modifier = headerModifier,
+                    backdrop = headerBackdrop,
+                    title = "Search Engine & Home",
+                    subtitle = "Default search engine and custom homepage",
+                    onBack = onNavigateBack
+                )
+            }
+        ) { topInset ->
+
+            val scrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxSize()
+                    .scrollMotionBlur(scrollState)
+                    .verticalScroll(scrollState, flingBehavior = com.petal.browser.ui.theme.layout.petalFlingBehavior())
+                    .padding(start = 16.dp, end = 16.dp, top = topInset + 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Default Search Engine Card
+                PetalSettingsSection(
+                    title = stringResource(R.string.ui_default_search_engine),
+                    iconRes = com.petal.browser.R.drawable.globe_2_cancel_rounded,
+                    cardId = "search_engine",
+                    targetHighlightId = targetHighlightItemId
+                ) {
+                    com.petal.browser.ui.containment.PetalGroup(rowCount = 2) { index, position ->
+                        when (index) {
+                            0 -> {
+                                com.petal.browser.ui.containment.PetalGroupRow(
+                                    icon = Icons.Rounded.Lock,
+                                    title = stringResource(R.string.ui_default_search_provider),
+                                    subtitle = "Google SafeSearch (Locked)",
+                                    position = position,
+                                    onClick = {}
+                                )
+                            }
+                            1 -> {
+                                com.petal.browser.ui.containment.PetalSettingsToggleRow(
+                                    title = stringResource(R.string.ui_show_search_suggestions),
+                                    subtitle = stringResource(R.string.ui_show_search_suggestions_summary),
+                                    icon = Icons.Rounded.TravelExplore,
+                                    checked = enableLiveSuggestions,
+                                    position = position,
+                                    onCheckedChange = onEnableLiveSuggestionsChange
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Homepage Configuration Card
+                PetalSettingsSection(
+                    title = stringResource(R.string.ui_custom_homepage),
+                    iconRes = com.petal.browser.R.drawable.home_filled,
+                    cardId = "search_homepage",
+                    targetHighlightId = targetHighlightItemId
+                ) {
+                    Text(
+                        stringResource(R.string.ui_custom_homepage),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    com.petal.browser.ui.components.PetalChoiceButtonGroup(
+                        options = listOf(
+                            com.petal.browser.ui.components.PetalButtonGroupItem(
+                                value = "0",
+                                label = stringResource(R.string.ui_petal_start_page)
+                            ),
+                            com.petal.browser.ui.components.PetalButtonGroupItem(
+                                value = "1",
+                                label = stringResource(R.string.ui_custom_url)
+                            ),
+                        ),
+                        selected = homepageType,
+                        onSelect = onHomepageTypeChange,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (homepageType == "1") {
+                        TextField(
+                            value = customHomepageUrl,
+                            onValueChange = onCustomHomepageUrlChange,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.ui_enter_homepage_url)) },
+                            placeholder = { Text("https://google.com") },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            )
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(32.dp))
+            }
+        }
+    }
+}

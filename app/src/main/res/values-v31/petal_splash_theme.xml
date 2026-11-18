@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: animated cookie + pinwheel. Replaces the static-icon style in values/themes.xml. -->
+<resources>
+    <style name="Theme.Petal.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/petal_splash_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_bloom_animated</item>
+        <item name="windowSplashScreenAnimationDuration">900</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    </style>
+
+    <!-- Per-icon animated launch themes (Android 13+ switches between them; 12 keeps the default Bloom). -->
+    <style name="Theme.Petal.Splash.Bloom" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_bloom_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.Swirl" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_petal_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.Tabs" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_tabs_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.P" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_p_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.Lens" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_lens_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.Shield" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_shield_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.Globe" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_globe_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.Pointer" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_pointer_animated</item>
+    </style>
+    <style name="Theme.Petal.Splash.Window" parent="Theme.Petal.Splash">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_window_animated</item>
+    </style>
+</resources>

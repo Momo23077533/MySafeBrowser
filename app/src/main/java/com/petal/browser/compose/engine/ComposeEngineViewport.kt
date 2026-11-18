@@ -1,0 +1,713 @@
+package com.petal.browser.compose.engine
+
+import android.content.Context
+import android.content.ContextWrapper
+import android.graphics.Bitmap
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.util.lerp
+import com.petal.browser.ui.components.BarCollapseState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.petal.browser.activity.MainActivity
+import com.petal.browser.browser.PetalPermissionDelegateWrapper
+import com.petal.browser.browser.PetalPromptDelegateWrapper
+import com.petal.browser.browser.PetalVerticalSwipeRefreshLayout
+import com.petal.browser.compose.composable.PetalRefreshBarState
+import com.petal.browser.compose.composable.RefreshBarLoadingIndicatorLazy
+import com.petal.browser.compose.menu.BrowserContextMenuManager
+import com.petal.browser.engine.gecko.PetalContentDelegateWrapper
+import com.petal.browser.engine.gecko.PetalEngineBridge
+import com.petal.browser.engine.gecko.PetalEngineStore
+import com.petal.browser.extensions.PetalExtensionManager
+import com.petal.browser.ui.glass.GeckoGlassBackend
+import com.petal.browser.ui.selection.PetalPageSelectionToolbar
+import com.petal.browser.unit.PetalBrowserUtils
+import com.petal.browser.unit.TabThumbnailCache
+import mozilla.components.browser.state.action.ContentAction
+import mozilla.components.browser.state.state.TabSessionState
+import mozilla.components.concept.engine.EngineView
+import mozilla.components.feature.session.SessionUseCases
+import mozilla.components.feature.session.SwipeRefreshFeature
+import org.mozilla.geckoview.GeckoResult
+import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoView
+
+/**
+ * ComposeEngineViewport
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Modern Jetpack Compose wrapper hosting Mozilla's [EngineView] (GeckoView 161).
+ *
+ * Provides direct GPU compositing for Petal's Liquid Glass and Material 3
+ * Expressive layers with zero legacy ViewTree hacks. Fully wires Mozilla HitResult
+ * context menus, text selection toolbars, prompt/permission handlers, and dynamic
+ * toolbar heights for smooth scrolling and clean status bar padding.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ComposeEngineViewport(
+    tab: TabSessionState?,
+    isLoading: Boolean,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier,
+    topPadding: Dp = 0.dp,
+    bottomPadding: Dp = 0.dp,
+    // Padding the page keeps once the bars are minimized. The page grows into the freed space
+    // as BarCollapseState.collapsedFraction goes 0 -> 1, so no empty band is left behind.
+    collapsedTopPadding: Dp = topPadding,
+    collapsedBottomPadding: Dp = bottomPadding,
+    onEngineViewReady: ((View) -> Unit)? = null,
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val act = (context as? MainActivity) ?: (context as? ContextWrapper)?.baseContext as? MainActivity
+
+    val nestedScrollConnection = remember(act) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source == NestedScrollSource.UserInput && act != null) {
+                    if (available.y < -12f) {
+                        act.animateAddressBarCollapse(true)
+                    } else if (available.y > 12f) {
+                        act.animateAddressBarCollapse(false)
+                    }
+                }
+                return Offset.Zero
+            }
+        }
+    }
+    // Pull-to-refresh uses Mozilla's own stack (same as Firefox for Android): a vertical-only
+    // SwipeRefreshLayout + android-components' SwipeRefreshFeature, which asks Gecko
+    // (InputResultDetail.canOverscrollTop) whether the page is at the top. The loader is drawn by
+    // Petal's Zenith-style RefreshBarLoadingIndicatorLazy instead of the legacy Android spinner.
+    val refreshBarState = remember { PetalRefreshBarState() }
+    val currentIsLoading by rememberUpdatedState(isLoading)
+    val swipeLayout = remember(context) {
+        PetalVerticalSwipeRefreshLayout(context).apply {
+            background = null
+            isNestedScrollingEnabled = true
+            onPullProgress = { refreshBarState.pullProgress = it }
+            onRefreshStateChanged = { refreshing ->
+                refreshBarState.isRefreshing = refreshing
+                if (!refreshing) refreshBarState.pullProgress = 0f
+            }
+        }
+    }
+
+    // Hide the loader when the page finished loading (the Mozilla feature also does this on tab changes).
+    LaunchedEffect(isLoading) {
+        if (!isLoading) swipeLayout.isRefreshing = false
+    }
+
+    // Safety net, same as PetalTabViewController: the feature only hides the spinner when the tab's
+    // `loading` flag CHANGES. If a reload ends between two updates, drop the loader after a few seconds.
+    LaunchedEffect(refreshBarState.isRefreshing) {
+        if (refreshBarState.isRefreshing) {
+            kotlinx.coroutines.delay(5_000L)
+            if (swipeLayout.isRefreshing && !currentIsLoading) swipeLayout.isRefreshing = false
+        }
+    }
+
+    // Pull is only available while a real web page is shown.
+    SideEffect {
+        swipeLayout.isEnabled = tab != null && !PetalBrowserUtils.isHomePage(tab.content.url)
+    }
+
+    DisposableEffect(tab?.id, swipeLayout) {
+        val tabId = tab?.id
+        if (tabId == null) {
+            onDispose { }
+        } else {
+            val store = PetalEngineStore.getStore(context)
+            val feature = SwipeRefreshFeature(
+                store = store,
+                reloadUrlUseCase = SessionUseCases(store).reload,
+                swipeRefreshLayout = swipeLayout,
+                tabId = tabId
+            )
+            feature.start()
+            onDispose {
+                feature.stop()
+                swipeLayout.isRefreshing = false
+                refreshBarState.pullProgress = 0f
+            }
+        }
+    }
+
+    // ── Context Menu Observer ──────────────────────────────────────────────────
+    // Listens to BrowserStore HitResult emissions from GeckoEngineSession for the active tab,
+    // consumes the result atomically, and surfaces Petal's Material 3 Expressive / Liquid Glass context menu.
+    DisposableEffect(tab?.id) {
+        val tabId = tab?.id
+        if (tabId == null) {
+            onDispose { }
+        } else {
+            val store = PetalEngineStore.getStore(context)
+            val sub = store.observeManually { state ->
+                val currentTab = state.tabs.firstOrNull { it.id == tabId } ?: return@observeManually
+                val hit = currentTab.content.hitResult ?: return@observeManually
+                store.dispatch(ContentAction.ConsumeHitResultAction(tabId))
+                val act = (context as? MainActivity)
+                    ?: (context as? ContextWrapper)?.baseContext as? MainActivity
+                if (act != null && !act.isFinishing && !act.isDestroyed) {
+                    act.runOnUiThread {
+                        BrowserContextMenuManager.handleContextMenu(
+                            activity = act,
+                            hitResult = hit,
+                            pageUrl = currentTab.content.url,
+                            pageTitle = currentTab.content.title
+                        )
+                    }
+                }
+            }.also { it.resume() }
+            onDispose {
+                sub.unsubscribe()
+            }
+        }
+    }
+
+    // Create and retain an EngineView instance across recompositions
+    val engineView = remember(context) {
+        PetalEngineStore.createEngineView(context).also { ev ->
+            ev.asView().id = com.petal.browser.R.id.main_content
+            ev.asView().background = null
+            ev.asView().isNestedScrollingEnabled = true
+            findGeckoView(ev.asView())?.let { gv ->
+                gv.background = null
+                gv.isNestedScrollingEnabled = true
+                gv.overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                try {
+                    GeckoGlassBackend.applyBackend(gv, context)
+                } catch (_: Throwable) {}
+            }
+        }
+    }
+
+    LaunchedEffect(engineView) {
+        onEngineViewReady?.invoke(engineView.asView())
+    }
+
+    // The page viewport is resized ONCE per collapse/expand (BarCollapseState.viewportCollapsed),
+    // never per animation frame: resizing Gecko every frame reflowed the page (content jumped) and
+    // left an unpainted black block where the bar had been. The visual slide between the two
+    // layouts is a plain translation of the view, so the page still follows the bars smoothly.
+    val fullTopPx = with(density) { topPadding.roundToPx() }
+    val fullBottomPx = with(density) { bottomPadding.roundToPx() }
+    val minTopPx = with(density) { collapsedTopPadding.roundToPx() }
+    val minBottomPx = with(density) { collapsedBottomPadding.roundToPx() }
+    LaunchedEffect(engineView, swipeLayout, fullTopPx, fullBottomPx, minTopPx, minBottomPx) {
+        snapshotFlow { BarCollapseState.viewportCollapsed to BarCollapseState.collapsedFraction }
+            .collect { (collapsedLayout, f) ->
+                val top = if (collapsedLayout) minTopPx else fullTopPx
+                val bottom = if (collapsedLayout) minBottomPx else fullBottomPx
+                val v = engineView.asView()
+                if (v.paddingTop != top || v.paddingBottom != bottom) v.setPadding(0, top, 0, bottom)
+                val shift = if (collapsedLayout) (fullTopPx - minTopPx).coerceAtLeast(0) * (1f - f) else 0f
+                if (swipeLayout.translationY != shift) swipeLayout.translationY = shift
+            }
+    }
+
+    // Inform GeckoView of dynamic toolbar height for smooth scrolling and proper viewport calculations
+    val totalToolbarHeightPx = with(density) { (topPadding + bottomPadding).roundToPx() }
+    LaunchedEffect(totalToolbarHeightPx, engineView) {
+        try { engineView.setDynamicToolbarMaxHeight(totalToolbarHeightPx) } catch (_: Throwable) {}
+        findGeckoView(engineView.asView())?.let { gv ->
+            try { gv.setDynamicToolbarMaxHeight(totalToolbarHeightPx) } catch (_: Throwable) {}
+        }
+    }
+
+    // Bind current active tab session and attach delegates
+    LaunchedEffect(tab?.id, tab?.engineState?.engineSession) {
+        if (tab == null) return@LaunchedEffect
+        var session = tab.engineState.engineSession
+        if (session == null) {
+            try {
+                val pair = PetalEngineStore.materializeTabSession(
+                    context = context,
+                    tabId = tab.id,
+                    fallbackUrl = tab.content.url,
+                    fallbackTitle = tab.content.title,
+                    isIncognito = tab.content.private,
+                    select = true
+                )
+                session = pair.second
+            } catch (t: Throwable) {
+                android.util.Log.e("ComposeEngineViewport", "Failed to materialize tab session", t)
+            }
+        }
+        if (session != null) {
+            try {
+                engineView.render(session)
+            } catch (t: Throwable) {
+                android.util.Log.w("ComposeEngineViewport", "Failed to render engine session: ${t.message}")
+            }
+            val gs = PetalEngineBridge.extractGeckoSession(session)
+            if (gs != null) {
+                attachSessionDelegates(
+                    context = context,
+                    session = gs,
+                    tab = tab,
+                    engineView = engineView
+                )
+            }
+        }
+    }
+
+    // Capture webpage thumbnail into TabThumbnailCache upon load completion.
+    LaunchedEffect(tab?.id, isLoading, tab?.content?.url) {
+        if (tab == null || isLoading) return@LaunchedEffect
+        if (PetalBrowserUtils.isHomePage(tab.content.url)) {
+            // The tab went back to the home page: its old website thumbnail is now wrong.
+            TabThumbnailCache.remove(tab.id)
+            return@LaunchedEffect
+        }
+        if (tab.content.url.isNotBlank()) {
+            kotlinx.coroutines.delay(250L)
+            findGeckoView(engineView.asView())?.let { gv ->
+                captureGeckoThumbnail(context, gv, tab.id, tab.content.private)
+            }
+        }
+    }
+
+    // Lets the activity refresh this thumbnail right before the tab manager opens.
+    DisposableEffect(tab?.id) {
+        val id = tab?.id
+        if (id != null) {
+            PetalViewportThumbnailer.capture = {
+                val current = PetalEngineStore.getStore(context).state.tabs.firstOrNull { it.id == id }
+                if (current != null && !PetalBrowserUtils.isHomePage(current.content.url)) {
+                    findGeckoView(engineView.asView())?.let { gv ->
+                        captureGeckoThumbnail(context, gv, id, current.content.private)
+                    }
+                }
+            }
+        }
+        onDispose {
+            if (PetalViewportThumbnailer.capture != null && id != null) PetalViewportThumbnailer.capture = null
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(nestedScrollConnection)
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // The bars reserve a strip above/below the page. It used to show the bare theme
+        // background (pure black on AMOLED), which read as a black bar around the glass. It now
+        // takes the page's own edge colour, sampled from Gecko, so bars and page look continuous.
+        val fallback = MaterialTheme.colorScheme.background
+        val topStrip by animateColorAsState(
+            if (PageEdgeColors.top == Color.Unspecified) fallback else PageEdgeColors.top, label = "pageEdgeTop")
+        val bottomStrip by animateColorAsState(
+            if (PageEdgeColors.bottom == Color.Unspecified) fallback else PageEdgeColors.bottom, label = "pageEdgeBottom")
+        val collapsedF = BarCollapseState.collapsedFraction
+        val topStripH = lerp(topPadding.value, collapsedTopPadding.value, collapsedF).dp
+        val bottomStripH = lerp(bottomPadding.value, collapsedBottomPadding.value, collapsedF).dp
+        Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(topStripH).background(topStrip))
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(bottomStripH).background(bottomStrip))
+
+        LaunchedEffect(engineView, tab?.id, tab?.content?.url, isLoading) {
+            if (!isLoading) { PageEdgeColors.requestResample() }
+        }
+        LaunchedEffect(engineView) {
+            PageEdgeColors.ticks.collectLatest {
+                delay(280L)
+                findGeckoView(engineView.asView())?.let { PageEdgeColors.sample(it) }
+            }
+        }
+
+        AndroidView(
+            factory = {
+                // Like Fenix, the EngineView is a direct child of the swipe-refresh layout:
+                // SwipeRefreshFeature inspects that child to ask Gecko if the page can still scroll up.
+                val view = engineView.asView()
+                val collapsedLayout = BarCollapseState.viewportCollapsed
+                view.setPadding(
+                    0,
+                    if (collapsedLayout) minTopPx else fullTopPx,
+                    0,
+                    if (collapsedLayout) minBottomPx else fullBottomPx
+                )
+                (view as? ViewGroup)?.clipToPadding = false
+                (view as? ViewGroup)?.clipChildren = false
+                if (view.parent !== swipeLayout) {
+                    (view.parent as? ViewGroup)?.removeView(view)
+                    swipeLayout.addView(
+                        view,
+                        ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    )
+                }
+                (swipeLayout.parent as? ViewGroup)?.removeView(swipeLayout)
+                swipeLayout.clipToPadding = false
+                swipeLayout.clipChildren = false
+                swipeLayout
+            },
+            update = {
+                // Session binding is handled when the tab or engine session changes above.
+                // Avoid rebinding GeckoView on every progress/title recomposition.
+                findGeckoView(engineView.asView())?.let { gv ->
+                    try {
+                        GeckoGlassBackend.applyBackend(gv, context)
+                    } catch (_: Throwable) {}
+                }
+            },
+            modifier = Modifier
+                .fillMaxSize()
+        )
+
+        RefreshBarLoadingIndicatorLazy(
+            isRefreshing = refreshBarState.isRefreshing,
+            pullProgressProvider = { refreshBarState.pullProgress },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = topPadding + 8.dp)
+        )
+    }
+}
+
+private fun attachSessionDelegates(
+    context: Context,
+    session: GeckoSession,
+    tab: TabSessionState,
+    engineView: EngineView,
+) {
+    val actSupplier: () -> MainActivity? = {
+        (context as? MainActivity) ?: (context as? ContextWrapper)?.baseContext as? MainActivity
+    }
+
+    // 1. Text Selection Action Delegate
+    session.selectionActionDelegate = object : GeckoSession.SelectionActionDelegate {
+        override fun onShowActionRequest(
+            session: GeckoSession,
+            selection: GeckoSession.SelectionActionDelegate.Selection
+        ) {
+            val act = actSupplier() ?: return
+            val anchorView: View = findGeckoView(engineView.asView()) ?: engineView.asView()
+            if (PetalPageSelectionToolbar.show(act, anchorView, selection)) {
+                return
+            }
+            val text = selection.text
+            if (!text.isNullOrBlank()) {
+                act.runOnUiThread {
+                    BrowserContextMenuManager.showSelectionContextMenu(act, text)
+                }
+            }
+        }
+
+        override fun onHideAction(session: GeckoSession, reason: Int) {
+            val act = actSupplier()
+            if (act != null) PetalPageSelectionToolbar.hide(act)
+        }
+    }
+
+    // 2. Content Delegate (wraps Mozilla's delegate for onContextMenu, fullScreen, crashes)
+    val crashCallback: () -> Unit = {
+        (context as? android.app.Activity)?.runOnUiThread {
+            try {
+                android.util.Log.i("ComposeEngineViewport", "Recovering terminated GeckoSession for tab ${tab.id}")
+                try {
+                    com.petal.browser.extensions.PetalExtensionManager.detachSession(session)
+                } catch (_: Throwable) {}
+                try {
+                    engineView.release()
+                } catch (_: Throwable) {}
+                try {
+                    if (session.isOpen) session.close()
+                } catch (_: Throwable) {}
+
+                val store = PetalEngineStore.getStore(context)
+                val eng = PetalEngineStore.getEngine(context)
+                val newEngineSession = eng.createSession(private = tab.content.private)
+                store.dispatch(
+                    mozilla.components.browser.state.action.EngineAction.LinkEngineSessionAction(
+                        tabId = tab.id,
+                        engineSession = newEngineSession,
+                        skipLoading = true
+                    )
+                )
+
+                try {
+                    engineView.render(newEngineSession)
+                } catch (t: Throwable) {
+                    android.util.Log.w("ComposeEngineViewport", "Error rendering recovered session: ${t.message}")
+                }
+
+                val newGs = PetalEngineBridge.extractGeckoSession(newEngineSession)
+                if (newGs != null) {
+                    attachSessionDelegates(
+                        context = context,
+                        session = newGs,
+                        tab = tab,
+                        engineView = engineView
+                    )
+                }
+
+                val restoreUrl = tab.content.url
+                if (restoreUrl.isNotBlank() && !PetalBrowserUtils.isHomePage(restoreUrl)) {
+                    newEngineSession.loadUrl(restoreUrl)
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("ComposeEngineViewport", "Failed to recover session after kill/crash", t)
+            }
+        }
+    }
+    val currentContent = session.contentDelegate
+    if (currentContent is PetalContentDelegateWrapper) {
+        currentContent.rebind(
+            contextProvider = { context },
+            isPrivateProvider = { tab.content.private },
+            referrerProvider = { tab.content.url },
+            onCrashCallback = crashCallback,
+            pageUrlProvider = { tab.content.url },
+            pageTitleProvider = { tab.content.title }
+        )
+    } else {
+        session.contentDelegate = PetalContentDelegateWrapper(
+            engine = currentContent,
+            contextProvider = { context },
+            isPrivateProvider = { tab.content.private },
+            referrerProvider = { tab.content.url },
+            onCrashCallback = crashCallback,
+            pageUrlProvider = { tab.content.url },
+            pageTitleProvider = { tab.content.title }
+        )
+    }
+
+    // 3. Prompt Delegate (prompts, alerts, auth, popups)
+    val currentPrompt = session.promptDelegate
+    if (currentPrompt is PetalPromptDelegateWrapper) {
+        currentPrompt.rebind(
+            newIncognitoProvider = { tab.content.private },
+            newActivityProvider = actSupplier
+        )
+    } else {
+        val sp = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+        session.promptDelegate = PetalPromptDelegateWrapper(
+            engine = currentPrompt,
+            session = session,
+            appContext = context.applicationContext,
+            sp = sp,
+            incognitoProvider = { tab.content.private },
+            activityProvider = actSupplier
+        )
+    }
+
+    // 4. Permission Delegate
+    val currentPerm = session.permissionDelegate
+    if (currentPerm is PetalPermissionDelegateWrapper) {
+        currentPerm.rebind(
+            newActivitySupplier = actSupplier,
+            newIsPrivateProvider = { tab.content.private }
+        )
+    } else {
+        session.permissionDelegate = PetalPermissionDelegateWrapper(
+            engine = currentPerm,
+            context = context.applicationContext,
+            activitySupplier = actSupplier,
+            isPrivateProvider = { tab.content.private }
+        )
+    }
+
+    // 5. Scroll Delegate for Address Bar collapse and tactile scroll gestures
+    val currentScroll = session.scrollDelegate
+    session.scrollDelegate = object : GeckoSession.ScrollDelegate {
+        private var lastScrollY: Int = 0
+        private var scrollRun: Int = 0
+
+        override fun onScrollChanged(session: GeckoSession, scrollX: Int, scrollY: Int) {
+            try { currentScroll?.onScrollChanged(session, scrollX, scrollY) } catch (_: Throwable) {}
+            val act = actSupplier() ?: return
+            val density = context.resources.displayMetrics.density
+            val hideAfterPx = 28f * density
+            val showAfterPx = 16f * density
+
+            val deltaY = scrollY - lastScrollY
+            lastScrollY = scrollY
+
+            // Resizing the viewport (bars collapsing/expanding) shifts Gecko's scroll offset by
+            // the freed height. That is not a user scroll: ignore it, and restart the run, or the
+            // shift immediately re-triggers the opposite bar state (flicker / page jump).
+            if (com.petal.browser.ui.components.BarCollapseState.isViewportSettling()) {
+                scrollRun = 0
+                PageEdgeColors.requestResample()
+                return
+            }
+            PageEdgeColors.requestResample()
+
+            act.runOnUiThread {
+                if (scrollY <= (4f * density).toInt()) {
+                    scrollRun = 0
+                    act.animateAddressBarCollapse(false)
+                } else if (deltaY != 0) {
+                    if ((deltaY > 0) != (scrollRun > 0)) scrollRun = 0
+                    scrollRun += deltaY
+                    if (scrollRun > hideAfterPx) {
+                        scrollRun = 0
+                        act.animateAddressBarCollapse(true)
+                    } else if (scrollRun < -showAfterPx) {
+                        scrollRun = 0
+                        act.animateAddressBarCollapse(false)
+                    }
+                }
+            }
+        }
+    }
+
+    // 6. Extensions
+    PetalExtensionManager.attachSession(session)
+    PetalExtensionManager.setActiveBrowserSession(null, session)
+}
+
+private fun findGeckoView(root: View?): GeckoView? {
+    if (root is GeckoView) return root
+    if (root is ViewGroup) {
+        for (i in 0 until root.childCount) {
+            val child = findGeckoView(root.getChildAt(i))
+            if (child != null) return child
+        }
+    }
+    return null
+}
+
+/** Hook used by MainActivity to capture the Compose-hosted tab just before the tab manager opens. */
+object PetalViewportThumbnailer {
+    @Volatile
+    @JvmField
+    var capture: (() -> Unit)? = null
+}
+
+private fun captureGeckoThumbnail(context: android.content.Context, gv: GeckoView, tabId: String, isIncognito: Boolean) {
+    if (gv.width <= 0 || gv.height <= 0) return
+    // Same gate as Firefox's BrowserThumbnails: only the SELECTED tab, and only after first
+    // contentful paint. Without it a tab switched away during the delay got the NEW tab's pixels
+    // stored under its own id (wrong thumbnail) and half-painted white frames were kept.
+    val store = PetalEngineStore.getStore(context)
+    if (store.state.selectedTabId != tabId) return
+    if (store.state.tabs.firstOrNull { it.id == tabId }?.content?.firstContentfulPaint != true) return
+    try {
+        gv.capturePixels().then({ bitmap: Bitmap? ->
+            if (bitmap != null) {
+                TabThumbnailCache.DISK.execute {
+                    // The tab may have changed while the pixels were in flight.
+                    if (store.state.selectedTabId != tabId) {
+                        if (!bitmap.isRecycled) bitmap.recycle()
+                        return@execute
+                    }
+                    val w = bitmap.width
+                    val h = bitmap.height
+                    if (w <= 0 || h <= 0) return@execute
+                    val targetWidth = Math.min(w, 480)
+                    val targetHeight = Math.max(1, (h.toFloat() * targetWidth / w).toInt())
+                    val scaled = try {
+                        val s = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+                        if (s !== bitmap && !bitmap.isRecycled) {
+                            bitmap.recycle()
+                        }
+                        s
+                    } catch (_: Throwable) {
+                        bitmap
+                    }
+                    TabThumbnailCache.put(tabId, scaled, isIncognito, true)
+                }
+            }
+            GeckoResult.fromValue<Void?>(null)
+        }, {
+            GeckoResult.fromValue<Void?>(null)
+        })
+    } catch (_: Throwable) {}
+}
+
+
+/**
+ * Colour of the page right under the top and bottom bars, sampled from a Gecko frame. Used to
+ * fill the strips the bars reserve, so no black band shows between the page and the glass.
+ */
+object PageEdgeColors {
+    var top by mutableStateOf(Color.Unspecified)
+    var bottom by mutableStateOf(Color.Unspecified)
+    internal val ticks = MutableStateFlow(0L)
+
+    fun requestResample() { ticks.value = ticks.value + 1 }
+
+    @Volatile private var lastSampleUptimeMs = 0L
+
+    internal fun sample(gv: GeckoView) {
+        if (gv.width <= 0 || gv.height <= 0) return
+        // capturePixels is not free: never more than once per 1.2 s.
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastSampleUptimeMs < 1200L) return
+        lastSampleUptimeMs = now
+        try {
+            val padTop = gv.paddingTop
+            val padBottom = gv.paddingBottom
+            gv.capturePixels().then({ bmp: Bitmap? ->
+                if (bmp != null && bmp.width > 4 && bmp.height > 4) {
+                    // The frame may or may not include the padding; pick rows just inside the
+                    // page either way by clamping to the bitmap.
+                    val scale = bmp.height.toFloat() / gv.height.coerceAtLeast(1)
+                    val yTop = ((padTop * scale).toInt() + 3).coerceIn(0, bmp.height - 1)
+                    val yBottom = (bmp.height - 1 - (padBottom * scale).toInt() - 3).coerceIn(0, bmp.height - 1)
+                    val xs = intArrayOf(bmp.width / 8, bmp.width / 2, bmp.width * 7 / 8)
+                    fun avg(y: Int): Color {
+                        var r = 0; var g = 0; var b = 0
+                        for (x in xs) {
+                            val c = bmp.getPixel(x, y)
+                            r += (c shr 16) and 0xFF; g += (c shr 8) and 0xFF; b += c and 0xFF
+                        }
+                        return Color(0xFF shl 24 or ((r / 3) shl 16) or ((g / 3) shl 8) or (b / 3))
+                    }
+                    val t = avg(yTop)
+                    val b = avg(yBottom)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        top = t
+                        bottom = b
+                    }
+                }
+                GeckoResult.fromValue<Void?>(null)
+            }, {
+                GeckoResult.fromValue<Void?>(null)
+            })
+        } catch (_: Throwable) {}
+    }
+}

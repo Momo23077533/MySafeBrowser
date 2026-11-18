@@ -1,0 +1,355 @@
+package com.petal.browser.compose.settings.screens
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import com.petal.browser.ui.components.scrollMotionBlur
+
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.*
+import com.petal.browser.ui.kit.TextField
+import com.petal.browser.ui.kit.IconButton
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.petal.browser.compose.settings.PetalSettingsSearchIndex
+import com.petal.browser.compose.settings.SettingsCategory
+import com.petal.browser.ui.components.ExpressiveHeader
+import com.petal.browser.ui.components.HeaderActionIcon
+import com.petal.browser.ui.components.M3ExpressiveVariableBackground
+import com.petal.browser.ui.containment.PetalBadgeVariant
+import com.petal.browser.ui.containment.PetalGroupIconBadge
+import com.petal.browser.ui.containment.PetalGroupListRow
+import com.petal.browser.ui.containment.PetalSectionLabel
+import com.petal.browser.ui.containment.petalGroupPositionFor
+import com.petal.browser.ui.containment.liquidGlassChrome
+import com.petal.browser.ui.containment.isLiquidGlassEnabled
+import com.petal.browser.ui.containment.petalGroupSurfaceColor
+import androidx.compose.ui.res.stringResource
+import com.petal.browser.R
+
+/**
+ * Main Settings Hub Screen matching RvSystem-Monitor's SettingsScreen.kt visual structure:
+ * - ExpressiveHeader with title, subtitle, and back button
+ * - Settings search input with clear button
+ * - Typo tolerance / "Did you mean?" suggestion chip banner
+ * - Search results across all settings category contents & preferences
+ * - LazyColumn of grouped rows using Petal containment surfaces
+ * - 48dp icon inside primary-tinted rounded box, title, subtitle, trailing chevron
+ */
+@Composable
+fun SettingsHubScreen(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onCategoryClick: (SettingsCategory, String?) -> Unit,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    isSearchOpen: Boolean = false,
+    onSearchOpenChange: ((Boolean) -> Unit)? = null
+) {
+    val searchResult = remember(searchQuery) {
+        PetalSettingsSearchIndex.search(searchQuery)
+    }
+
+    val isSearching = searchQuery.isNotBlank()
+    val filteredCategories = searchResult.matchingCategories
+    val matchingItems = searchResult.matchingItems
+    val didYouMean = searchResult.didYouMean
+
+    var internalSearchOpen by rememberSaveable { mutableStateOf(searchQuery.isNotBlank()) }
+    val effectiveSearchOpen = if (onSearchOpenChange != null) isSearchOpen else internalSearchOpen
+    val toggleSearch: (Boolean) -> Unit = { open ->
+        if (onSearchOpenChange != null) {
+            onSearchOpenChange(open)
+        } else {
+            internalSearchOpen = open
+        }
+    }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(effectiveSearchOpen) {
+        if (effectiveSearchOpen && searchQuery.isEmpty()) {
+            try {
+                focusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        M3ExpressiveVariableBackground(pageSeed = "settings_hub")
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            ExpressiveHeader(
+                title = "Settings",
+                subtitle = "Browser Preferences & Customization",
+                onBack = onNavigateBack,
+                actions = {
+                    HeaderActionIcon(
+                        icon = if (effectiveSearchOpen) Icons.Rounded.Close else Icons.Rounded.Search,
+                        contentDescription = if (effectiveSearchOpen) "Close search" else "Search settings",
+                        onClick = {
+                            if (effectiveSearchOpen) {
+                                toggleSearch(false)
+                                onSearchQueryChange("")
+                            } else {
+                                toggleSearch(true)
+                            }
+                        }
+                    )
+                }
+            )
+
+            AnimatedVisibility(
+                visible = effectiveSearchOpen,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                val isGlass = isLiquidGlassEnabled("sp_liquid_glass_address_bar") || isLiquidGlassEnabled("sp_liquid_glass_containments")
+                val searchShape = RoundedCornerShape(16.dp)
+                TextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .liquidGlassChrome(shape = searchShape, enabled = isGlass, sheenIntensity = 0.45f)
+                        .focusRequester(focusRequester),
+                    placeholder = { Text(stringResource(R.string.ui_search_settings)) },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { onSearchQueryChange("") }) {
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.ui_clear))
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = searchShape,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = if (isGlass) petalGroupSurfaceColor() else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        unfocusedContainerColor = if (isGlass) petalGroupSurfaceColor() else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ), glass = false
+                )
+            }
+
+            // Typo / Misspelling Suggestion Banner
+            if (isSearching && didYouMean != null) {
+                val bannerShape = RoundedCornerShape(16.dp)
+                val isGlass = isLiquidGlassEnabled("sp_liquid_glass_containments")
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                        .then(if (isGlass) Modifier.liquidGlassChrome(bannerShape, enabled = true, sheenIntensity = 0.40f) else Modifier),
+                    shape = bannerShape,
+                    color = if (isGlass) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.50f) else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f),
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSearchQueryChange(didYouMean) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoFixHigh,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.ui_did_you_mean),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                            )
+                            Text(
+                                text = didYouMean,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                        Text(
+                            text = stringResource(R.string.ui_apply),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            val hubListState = androidx.compose.foundation.lazy.rememberLazyListState()
+            LazyColumn(
+                state = hubListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .scrollMotionBlur(hubListState),
+                contentPadding = PaddingValues(
+                    top = 12.dp,
+                    bottom = 24.dp,
+                    start = 16.dp,
+                    end = 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                // Feature Banner Carousel from Zenith (displayed when not actively searching)
+                if (!isSearching) {
+                    item {
+                        PetalFeaturedCarousel(
+                            onCategoryClick = onCategoryClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                        )
+                    }
+                }
+
+                // Matching Detailed Settings Items (when searching)
+                if (isSearching && matchingItems.isNotEmpty()) {
+                    item {
+                        PetalSectionLabel("Matching Settings (${matchingItems.size})", Modifier.padding(top = 4.dp))
+                    }
+
+                    itemsIndexed(matchingItems, key = { _, item -> "${item.category.name}_${item.id}" }) { index, item ->
+                        PetalGroupListRow(
+                            position = petalGroupPositionFor(index, matchingItems.size),
+                            onClick = { onCategoryClick(item.category, item.id) },
+                            leading = { PetalGroupIconBadge(Icons.Rounded.Search) },
+                            content = {
+                                Text(
+                                    item.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+                                    Text(item.category.title, style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Text(
+                                    item.subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailing = { Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        )
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+
+                // Categories Header
+                if (filteredCategories.isNotEmpty()) {
+                    item {
+                        PetalSectionLabel(
+                            if (isSearching) "Matching Categories (${filteredCategories.size})" else "Categories"
+                        )
+                    }
+
+                    itemsIndexed(filteredCategories, key = { _, category -> category.name }) { index, category ->
+                        val badgeVariant = when (index % 4) {
+                            0 -> PetalBadgeVariant.PRIMARY
+                            1 -> PetalBadgeVariant.SECONDARY
+                            2 -> PetalBadgeVariant.TERTIARY
+                            else -> PetalBadgeVariant.SURFACE_TONAL
+                        }
+                        val tileBounds = androidx.compose.runtime.remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
+                        PetalGroupListRow(
+                            position = petalGroupPositionFor(index, filteredCategories.size),
+                            modifier = Modifier.onGloballyPositioned { tileBounds[0] = it.boundsInWindow() },
+                            onClick = {
+                                com.petal.browser.ui.components.PetalContainerSource.set(tileBounds[0])
+                                onCategoryClick(category, null)
+                            },
+                            leading = {
+                                PetalGroupIconBadge(
+                                    painter = painterResource(category.iconRes),
+                                    variant = badgeVariant
+                                )
+                            },
+                            content = {
+                                Text(
+                                    category.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    category.subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailing = { Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        )
+                    }
+                } else if (isSearching && matchingItems.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                                Text(
+                                    text = stringResource(R.string.ui_no_settings_found_for, searchQuery),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,338 @@
+package com.petal.browser.ui.components
+
+import com.petal.browser.ui.theme.ExpressiveButtonShape
+import android.app.Activity
+import android.app.Dialog
+import android.graphics.Color as AndroidColor
+import android.graphics.drawable.ColorDrawable
+import android.os.Bundle
+import android.os.Build
+import android.view.Gravity
+import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import com.petal.browser.ui.containment.liquidGlassChrome
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import com.petal.browser.ui.containment.PetalMaterialAlertDialog
+import com.petal.browser.ui.glass.PetalGlassContainer
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
+import com.petal.browser.ui.kit.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import com.petal.browser.ui.kit.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.petal.browser.ui.theme.PetalExpressiveTheme
+import androidx.compose.ui.res.stringResource
+import com.petal.browser.R
+import androidx.compose.material3.Icon
+
+@Composable
+fun PetalExitConfirmationDialog(
+    visible: Boolean,
+    onDismissRequest: () -> Unit,
+    onExit: () -> Unit
+) {
+    if (visible) {
+        PetalMaterialAlertDialog(
+            onDismissRequest = onDismissRequest,
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.ui_leave_petal_browser),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.ui_do_you_want_to_exit),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = onExit,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text(stringResource(R.string.ui_exit), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissRequest) {
+                    Text(stringResource(R.string.ui_stay), fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Material 3 Expressive exit confirmation dialog used by the browser activity.
+ * It intentionally uses the app's Compose theme so typography, dynamic colors,
+ * expressive motion and user font settings stay consistent with the rest of Petal.
+ */
+object PetalExitConfirmationDialog {
+
+    @JvmStatic
+    fun show(activity: Activity, onExit: Runnable) {
+        if (activity.isFinishing || activity.isDestroyed) return
+
+        val dialog = Dialog(activity)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setCanceledOnTouchOutside(true)
+
+        val rootView = activity.findViewById<android.view.View>(android.R.id.content) ?: activity.window.decorView
+        com.petal.browser.predictive.PetalContentSnapshot.capture(rootView)
+        dialog.setOnDismissListener {
+            com.petal.browser.predictive.PetalContentSnapshot.clear()
+        }
+
+        val composeView = ComposeView(activity).apply {
+            // A Dialog has its own window, so the Activity's view-tree owners are NOT inherited.
+            // Without these, attaching the ComposeView throws
+            // "ViewTreeLifecycleOwner not found from ComposeView".
+            val owner = activity as? androidx.activity.ComponentActivity
+            if (owner != null) {
+                setViewTreeLifecycleOwner(owner)
+                setViewTreeViewModelStoreOwner(owner)
+                setViewTreeSavedStateRegistryOwner(owner)
+            }
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setContent {
+                val hostSource = activity.findViewById<android.view.View>(com.petal.browser.R.id.main)
+                    ?: activity.findViewById(android.R.id.content)
+                CompositionLocalProvider(com.petal.browser.ui.glass.LocalPetalGlassSource provides hostSource) {
+                    PetalExpressiveTheme {
+                        com.petal.browser.ui.glass.PetalGlassContainer(
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight(),
+                            enabled = com.petal.browser.ui.containment.isLiquidGlassEnabled("sp_liquid_glass_containments"),
+                            live = true
+                        ) {
+                            ExitDialogContent(
+                                onStay = { dialog.dismiss() },
+                                onExit = {
+                                    dialog.dismiss()
+                                    onExit.run()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        dialog.setContentView(composeView)
+        (activity as? androidx.activity.ComponentActivity)?.let { owner ->
+            dialog.window?.decorView?.let { decor ->
+                decor.setViewTreeLifecycleOwner(owner)
+                decor.setViewTreeViewModelStoreOwner(owner)
+                decor.setViewTreeSavedStateRegistryOwner(owner)
+            }
+        }
+        var unbindBlur: (() -> Unit)? = null
+        dialog.setOnDismissListener {
+            unbindBlur?.invoke()
+            unbindBlur = null
+            com.petal.browser.predictive.PetalContentSnapshot.clear()
+        }
+        dialog.setOnShowListener {
+            val window = dialog.window ?: return@setOnShowListener
+            window.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
+            window.setGravity(Gravity.CENTER)
+            window.setLayout(
+                (activity.resources.displayMetrics.widthPixels * 0.84f).toInt().coerceAtMost(dp(activity, 360)),
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
+
+            // Expressive pop-in: slightly overshooting spring-like scale without
+            // changing the Material surface itself.
+            val decor = window.decorView
+            decor.scaleX = 0.90f
+            decor.scaleY = 0.90f
+            decor.alpha = 0f
+            decor.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(260L)
+                .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0.9f, 0.25f, 1f))
+                .start()
+        }
+        dialog.show()
+
+        // Live blur behind the dialog (Petal's shared engine: OS blur, or in-app capture incl. the page).
+        // It owns the window dim: blurred dim when active, the old dim otherwise.
+        dialog.window?.let { window ->
+            window.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
+            window.setLayout(
+                (activity.resources.displayMetrics.widthPixels * 0.84f).toInt().coerceAtMost(dp(activity, 360)),
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
+            val isGlass = com.petal.browser.ui.containment.isLiquidGlassDirect(activity)
+            unbindBlur?.invoke()
+            unbindBlur = com.petal.browser.ui.blur.bindPetalWindowBlur(
+                context = activity,
+                window = window,
+                surface = com.petal.browser.ui.blur.PetalBlurSurface.DIALOGS,
+                fallbackDim = if (isGlass) 0.12f else 0.68f,
+            )
+        }
+    }
+
+    private fun dp(activity: Activity, value: Int): Int =
+        (value * activity.resources.displayMetrics.density).toInt()
+}
+
+@Composable
+private fun ExitDialogContent(
+    onStay: () -> Unit,
+    onExit: () -> Unit,
+) {
+    val isGlass = com.petal.browser.ui.containment.isLiquidGlassEnabled("sp_liquid_glass_containments")
+    val dialogShape = MaterialTheme.shapes.extraLarge
+
+    PetalGlassContainer(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        live = true,
+        enabled = isGlass
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .liquidGlassChrome(dialogShape, enabled = isGlass, sheenIntensity = 0.55f),
+            shape = dialogShape,
+            color = if (isGlass) com.petal.browser.ui.containment.petalGroupSurfaceColor() else MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = if (isGlass) 0.dp else 6.dp,
+            shadowElevation = if (isGlass) 0.dp else 6.dp,
+            border = null
+        ) {
+        Column(
+            modifier = Modifier.padding(start = 24.dp, top = 22.dp, end = 24.dp, bottom = 18.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.ui_close),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .semantics { contentDescription = "Close" }
+                    .width(28.dp)
+                    .height(28.dp)
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        shape = com.petal.browser.ui.theme.ExpressiveButtonShape
+                    )
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.ui_leave_petal_browser),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = stringResource(R.string.ui_do_you_want_to_exit),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(22.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = onStay,
+                    shape = RoundedCornerShape(topStart = 50.dp, bottomStart = 50.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .semantics { role = Role.Button },
+                ) {
+                    Text(
+                        stringResource(R.string.ui_stay),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Button(
+                    onClick = onExit,
+                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 50.dp, bottomEnd = 50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .semantics { role = Role.Button },
+                ) {
+                    Text(
+                        stringResource(R.string.ui_exit),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+}

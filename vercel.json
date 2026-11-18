@@ -1,0 +1,29 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/site/index.html"
+    },
+    {
+      "source": "/(styles\\.css|pages\\.css|app\\.js|page\\.js|changelog\\.js|robots\\.txt|app-ads\\.txt|ads\\.txt|sitemap\\.xml|site\\.webmanifest|favicon\\.ico|google[a-zA-Z0-9]+\\.html)",
+      "destination": "/site/$1"
+    },
+    {
+      "source": "/(privacy|terms|faq|support|download|licenses|changelog|prd|design|architecture|code-of-conduct|gpl|docs)",
+      "destination": "/site/$1.html"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/site/assets/$1"
+    },
+    {
+      "source": "/site",
+      "destination": "/site/index.html"
+    },
+    {
+      "source": "/site/(.*)",
+      "destination": "/site/$1"
+    }
+  ]
+}

@@ -1,0 +1,753 @@
+/*
+ * PetalQuickToolsBridge.kt
+ * ─────────────────────────────────────────────────────────────────────────
+ * Quick Tools Bridge: coordinates UI bottom sheets, script injections, and
+ * tool actions for Petal Browser matching Omni Browser reference.
+ *
+ * Uses com.google.android.material.bottomsheet.BottomSheetDialog to guarantee
+ * clean window management, prevent decorView pollution, and eliminate activity freezes.
+ * Universally supports PetalTabViewController tabs.
+ *
+ * Copyright (c) 2026 Petal Browser
+ */
+
+package com.petal.browser.ui.components
+
+import com.petal.browser.R
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
+import android.view.ViewGroup
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.preference.PreferenceManager
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.launch
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.petal.browser.activity.MainActivity
+import com.petal.browser.browser.AlbumController
+import com.petal.browser.browser.PetalTabViewController
+import com.petal.browser.lens.PetalLensBridge
+import com.petal.browser.ui.theme.AppFont
+import com.petal.browser.ui.theme.ColorStyle
+import com.petal.browser.ui.theme.PetalExpressiveTheme
+import com.petal.browser.view.PetalToast
+import java.net.URLEncoder
+
+object PetalQuickToolsBridge {
+
+    @Volatile
+    private var activeMainActivity: MainActivity? = null
+
+    private fun evaluateJavascript(
+        controller: AlbumController?,
+        script: String,
+        callback: ((String?) -> Unit)? = null
+    ) {
+        val act = activeMainActivity
+        when {
+            controller is PetalTabViewController -> controller.evaluateJavascript(script, callback)
+            act != null -> act.evaluateJavascriptInActiveTab(script) { callback?.invoke(it) }
+            else -> callback?.invoke(null)
+        }
+    }
+
+    private fun captureFullPageBitmap(
+        controller: AlbumController?,
+        callback: (Bitmap?) -> Unit
+    ) {
+        val act = activeMainActivity
+        when {
+            controller is PetalTabViewController -> controller.captureFullPageBitmap(callback)
+            act != null -> {
+                val root = act.findViewById<android.view.View>(android.R.id.content) ?: act.window.decorView
+                com.petal.browser.predictive.PetalContentSnapshot.capture(root)
+                callback(com.petal.browser.predictive.PetalContentSnapshot.current)
+            }
+            else -> callback(null)
+        }
+    }
+
+    private fun setUserAgent(
+        controller: AlbumController?,
+        userAgent: String?
+    ) {
+        when (controller) {
+            is PetalTabViewController -> controller.setUserAgent(userAgent)
+            else -> {}
+        }
+    }
+
+    private fun reloadTab(controller: AlbumController?) {
+        val act = activeMainActivity
+        when {
+            controller is PetalTabViewController -> controller.reload()
+            act != null -> act.reloadCurrentBrowserTab()
+            else -> {}
+        }
+    }
+
+    private fun loadUrlInTab(controller: AlbumController?, url: String) {
+        val act = activeMainActivity
+        when {
+            controller is PetalTabViewController -> controller.loadUrl(url)
+            act != null -> act.viewModel.loadUrl(url)
+            else -> {}
+        }
+    }
+
+    @JvmStatic
+    fun showQuickTools(activity: MainActivity) {
+        activeMainActivity = activity
+        val currentController = activity.currentAlbumController
+        val currentUrl = currentController?.url?.takeIf { it.isNotBlank() } ?: activity.viewModel.activeUrl.value
+        val currentTitle = currentController?.title?.takeIf { it.isNotBlank() } ?: activity.viewModel.activeTitle.value
+
+        try {
+            val rootView = activity.findViewById<android.view.View>(android.R.id.content) ?: activity.window.decorView
+            com.petal.browser.predictive.PetalContentSnapshot.capture(rootView)
+
+            val decor = activity.window.decorView as? ViewGroup ?: return
+            var composeView: ComposeView? = null
+            fun cleanup() {
+                com.petal.browser.predictive.PetalContentSnapshot.clear()
+                composeView?.let { cv -> decor.removeView(cv) }
+            }
+
+            val sp = PreferenceManager.getDefaultSharedPreferences(activity)
+            composeView = ComposeView(activity).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                setViewTreeLifecycleOwner(activity)
+                setViewTreeViewModelStoreOwner(activity)
+                setViewTreeSavedStateRegistryOwner(activity)
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+                setContent {
+                    val fontName = sp.getString("sp_app_font", "PETAL") ?: "PETAL"
+                    val styleName = sp.getString("sp_color_style", "TONAL_SPOT") ?: "TONAL_SPOT"
+                    val paletteId = sp.getString("sp_palette_id", com.petal.browser.ui.theme.defaultPaletteId) ?: com.petal.browser.ui.theme.defaultPaletteId
+                    val dynamicColor = sp.getBoolean("useDynamicColor", com.petal.browser.ui.theme.isDynamicColorSupported)
+                    val isAmoled = sp.getBoolean("sp_amoled", false)
+                    val appFont = remember(fontName) { AppFont.fromName(fontName) }
+                    val colorStyle = remember(styleName) {
+                        try { ColorStyle.valueOf(styleName) } catch (_: Exception) { ColorStyle.TONAL_SPOT }
+                    }
+
+                    val predictiveBackProgress = remember { androidx.compose.animation.core.Animatable(0f) }
+                    val coroutineScope = rememberCoroutineScope()
+
+                    PredictiveBackHandler(enabled = true) { progressFlow ->
+                        try {
+                            progressFlow.collect { backEvent ->
+                                predictiveBackProgress.snapTo(backEvent.progress)
+                            }
+                            cleanup()
+                        } catch (_: kotlinx.coroutines.CancellationException) {
+                            coroutineScope.launch {
+                                predictiveBackProgress.animateTo(
+                                    0f,
+                                    androidx.compose.animation.core.spring(
+                                        stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    PetalExpressiveTheme(
+                        dynamicColor = dynamicColor,
+                        useAmoled = isAmoled,
+                        appFont = appFont,
+                        colorStyle = colorStyle,
+                        paletteId = paletteId
+                    ) {
+                        val isGlass = com.petal.browser.ui.containment.isLiquidGlassEnabled("sp_liquid_glass_containments")
+                        val wallpaper = com.petal.browser.ui.glass.rememberPetalGlassWallpaper()
+                        val hostSource = activity.findViewById<android.view.View>(com.petal.browser.R.id.main)
+                            ?: activity.findViewById<android.view.View>(android.R.id.content)
+                            ?: activity.window.decorView
+
+                        CompositionLocalProvider(
+                            com.petal.browser.ui.glass.LocalPetalGlassSource provides hostSource,
+                            com.petal.browser.ui.glass.LocalPetalGlassWallpaper provides wallpaper
+                        ) {
+                            val backProgress = predictiveBackProgress.value
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = (0.40f * (1f - backProgress)).coerceAtLeast(0f)))
+                                    .clickable(
+                                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { cleanup() }
+                                    ),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer {
+                                            val scale = (1f - (backProgress * 0.08f)).coerceIn(0.92f, 1f)
+                                            scaleX = scale
+                                            scaleY = scale
+                                            translationY = backProgress * 200.dp.toPx()
+                                            alpha = (1f - (backProgress * 0.35f)).coerceIn(0f, 1f)
+                                        }
+                                        .clickable(
+                                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                            indication = null,
+                                            onClick = {}
+                                        )
+                                ) {
+                                    if (isGlass) {
+                                        com.petal.browser.ui.containment.PetalSheetGlassBackdrop(wallpaper, Modifier.matchParentSize())
+                                    }
+                                    PetalQuickToolsSheet(
+                                        currentPageUrl = currentUrl,
+                                        currentPageTitle = currentTitle,
+                                        onToolClicked = { tool ->
+                                            cleanup()
+                                            handleToolClick(activity, currentController, currentUrl, currentTitle, tool)
+                                        },
+                                        onDismissRequest = {
+                                            cleanup()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            decor.addView(composeView)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun handleToolClick(
+        activity: MainActivity,
+        controller: AlbumController?,
+        currentUrl: String,
+        currentTitle: String,
+        tool: QuickToolId
+    ) {
+        when (tool) {
+            QuickToolId.QR_SCANNER -> {
+                try {
+                    PetalLensBridge.showPetalScannerDirectly(activity)
+                } catch (e: Exception) {
+                    PetalToast.show(activity, activity.getString(R.string.ui_opening_scanner))
+                }
+            }
+
+            QuickToolId.TRANSLATOR -> {
+                if (currentUrl.isNotEmpty() && !currentUrl.startsWith("about:")) {
+                    evaluateJavascript(controller, "document.dispatchEvent(new CustomEvent('petal-translate-start'));") {
+                        try {
+                            val translateUrl = "https://translate.google.com/translate?sl=auto&tl=en&u=${URLEncoder.encode(currentUrl, "UTF-8")}"
+                            loadUrlInTab(controller, translateUrl)
+                        } catch (_: Exception) {}
+                    }
+                } else {
+                    PetalToast.show(activity, activity.getString(R.string.ui_navigate_to_translate))
+                }
+            }
+
+            QuickToolId.EDIT_PAGE -> {
+                evaluateJavascript(controller, """
+                    (function() {
+                        if (document.designMode === 'on') {
+                            document.designMode = 'off';
+                            document.body.contentEditable = 'false';
+                            return 'Edit Page Disabled';
+                        } else {
+                            document.designMode = 'on';
+                            document.body.contentEditable = 'true';
+                            return 'Edit Page Enabled: Tap any text to edit';
+                        }
+                    })()
+                """.trimIndent()) { result ->
+                    val clean = result?.trim('"', '\'') ?: "Edit Page toggled"
+                    PetalToast.show(activity, clean)
+                }
+            }
+
+            QuickToolId.NETWORK -> {
+                showNetworkInspector(activity, currentUrl)
+            }
+
+            QuickToolId.AUTO_SCROLL -> {
+                showAutoScroll(activity, controller)
+            }
+
+            QuickToolId.QR_SCAN_PAGE -> {
+                evaluateJavascript(controller, """
+                    (function() {
+                        var links = [];
+                        document.querySelectorAll('img').forEach(function(img) {
+                            if (img.src && (img.src.includes('qr') || img.alt.includes('qr'))) links.push(img.src);
+                        });
+                        return JSON.stringify(links);
+                    })()
+                """.trimIndent()) { result ->
+                    val type = object : TypeToken<List<String>>() {}.type
+                    val qrUrls: List<String> = try { Gson().fromJson(result, type) } catch (_: Exception) { emptyList() }
+                    if (qrUrls.isNotEmpty()) {
+                        val firstQr = qrUrls.first()
+                        com.petal.browser.compose.mlkit.PetalImageScannerBridge.show(activity, firstQr)
+                    } else {
+                        PetalToast.show(activity, activity.getString(R.string.ui_searching_webpage_qr))
+                    }
+                }
+            }
+
+            QuickToolId.QR_GENERATOR -> {
+                showQrGenerator(activity, currentUrl, currentTitle)
+            }
+
+            QuickToolId.DEV_NOTES -> {
+                val domain = try { Uri.parse(currentUrl).host ?: "" } catch (_: Exception) { "" }
+                showDevNotes(activity, domain)
+            }
+
+            QuickToolId.SITE_STYLE -> {
+                showSiteStyle(activity, controller)
+            }
+
+            QuickToolId.IMAGE_GRABBER -> {
+                showImageGrabber(activity, controller)
+            }
+
+            QuickToolId.INSPECTOR -> {
+                evaluateJavascript(controller, """
+                    (function() {
+                        if (window.__petal_inspector_active) {
+                            window.__petal_inspector_active = false;
+                            var el = document.getElementById('__petal_inspector_hud');
+                            if (el) el.remove();
+                            return 'DOM Inspector Disabled';
+                        }
+                        window.__petal_inspector_active = true;
+                        var hud = document.createElement('div');
+                        hud.id = '__petal_inspector_hud';
+                        hud.style.cssText = 'position:fixed;bottom:16px;left:16px;right:16px;background:rgba(25,25,30,0.95);color:#fff;padding:12px 16px;border-radius:16px;font-family:monospace;font-size:12px;z-index:2147483647;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);';
+                        hud.innerText = '⚡ Tap any element on page to inspect its HTML tag & styles';
+                        document.body.appendChild(hud);
+
+                        document.addEventListener('click', function handler(e) {
+                            if (!window.__petal_inspector_active) {
+                                document.removeEventListener('click', handler, true);
+                                return;
+                            }
+                            e.preventDefault();
+                            e.stopPropagation();
+                            var t = e.target;
+                            var tag = t.tagName.toLowerCase();
+                            var id = t.id ? '#' + t.id : '';
+                            var cls = t.className && typeof t.className === 'string' ? '.' + t.className.trim().split(/\s+/).join('.') : '';
+                            hud.innerText = tag + id + cls + ' [' + t.offsetWidth + 'x' + t.offsetHeight + 'px]';
+                        }, true);
+                        return 'DOM Inspector Activated';
+                    })()
+                """.trimIndent()) { msg ->
+                    val clean = msg?.trim('"', '\'') ?: "DOM Inspector"
+                    PetalToast.show(activity, clean)
+                }
+            }
+
+            QuickToolId.BLOCK_AREA -> {
+                evaluateJavascript(controller, """
+                    (function() {
+                        var hud = document.createElement('div');
+                        hud.style.cssText = 'position:fixed;top:16px;left:16px;right:16px;background:#d32f2f;color:#fff;padding:12px 16px;border-radius:16px;font-family:sans-serif;font-size:13px;z-index:2147483647;text-align:center;font-weight:bold;box-shadow:0 8px 25px rgba(0,0,0,0.5);';
+                        hud.innerText = '⚡ Element Zapper: Tap any element to remove it';
+                        document.body.appendChild(hud);
+                        setTimeout(function() { hud.remove(); }, 5000);
+
+                        document.addEventListener('click', function handler(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (e.target !== hud) {
+                                e.target.remove();
+                                hud.innerText = '✓ Element removed';
+                                setTimeout(function() { hud.remove(); }, 1500);
+                            }
+                            document.removeEventListener('click', handler, true);
+                        }, true);
+                    })()
+                """.trimIndent())
+                PetalToast.show(activity, activity.getString(R.string.ui_tap_element_remove))
+            }
+
+            QuickToolId.SPOOF_IDENTITY -> {
+                showSpoofIdentity(activity, controller)
+            }
+
+            QuickToolId.FORCE_ZOOM -> {
+                evaluateJavascript(controller, """
+                    (function() {
+                        var metas = document.querySelectorAll('meta[name="viewport"]');
+                        metas.forEach(function(m) {
+                            m.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=10.0, user-scalable=yes');
+                        });
+                        if (metas.length === 0) {
+                            var m = document.createElement('meta');
+                            m.name = 'viewport';
+                            m.content = 'width=device-width, initial-scale=1.0, maximum-scale=10.0, user-scalable=yes';
+                            document.head.appendChild(m);
+                        }
+                    })()
+                """.trimIndent())
+                PetalToast.show(activity, activity.getString(R.string.ui_pinch_to_zoom_enabled))
+            }
+
+            QuickToolId.SCREENSHOT -> {
+                captureFullPageBitmap(controller) { bitmap ->
+                    if (bitmap != null) {
+                        try {
+                            val picturesDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES)
+                            val petalDir = java.io.File(picturesDir, "Petal")
+                            if (!petalDir.exists()) petalDir.mkdirs()
+                            val file = java.io.File(petalDir, "Petal_${System.currentTimeMillis()}.png")
+                            java.io.FileOutputStream(file).use { out ->
+                                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            android.media.MediaScannerConnection.scanFile(activity, arrayOf(file.absolutePath), arrayOf("image/png"), null)
+                            PetalToast.show(activity, activity.getString(R.string.ui_screenshot_saved))
+                            com.petal.browser.live.PetalLiveActionBus.postSimple(com.petal.browser.live.LiveEventKind.SCREENSHOT_SAVED, "screenshot", "Screenshot saved", "Pictures/Petal")
+                        } catch (e: Exception) {
+                            PetalToast.show(activity, activity.getString(R.string.ui_screenshot_captured))
+                        }
+                    } else {
+                        PetalToast.show(activity, activity.getString(R.string.ui_screenshot_failed))
+                    }
+                }
+            }
+
+            QuickToolId.APP_LOCK -> {
+                // Opens the App Lock page directly as its own overlay with its own back handling.
+                com.petal.browser.compose.security.PetalAppLockBridge.showConfig(activity, Runnable { })
+            }
+
+            QuickToolId.TORRENT_MAGNET -> {
+                evaluateJavascript(controller, """
+                    (function() {
+                        var magnets = [];
+                        document.querySelectorAll('a[href^="magnet:"]').forEach(function(a) { magnets.push(a.href); });
+                        return JSON.stringify(magnets);
+                    })()
+                """.trimIndent()) { result ->
+                    try {
+                        val type = object : TypeToken<List<String>>() {}.type
+                        val magnets: List<String> = Gson().fromJson(result, type) ?: emptyList()
+                        if (magnets.isNotEmpty()) {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(magnets.first()))
+                            activity.startActivity(Intent.createChooser(intent, "Open Magnet Link"))
+                        } else {
+                            PetalToast.show(activity, activity.getString(R.string.ui_no_magnet_links))
+                        }
+                    } catch (e: Exception) {
+                        PetalToast.show(activity, activity.getString(R.string.ui_no_magnet_links))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showQrGenerator(activity: MainActivity, url: String, title: String) {
+        val decor = activity.window.decorView as? ViewGroup ?: return
+        var view: ComposeView? = null
+        view = ComposeView(activity).apply {
+            setViewTreeLifecycleOwner(activity)
+            setViewTreeViewModelStoreOwner(activity)
+            setViewTreeSavedStateRegistryOwner(activity)
+            setContent {
+                PetalExpressiveTheme {
+                    PetalQrGeneratorDialog(
+                        url = url,
+                        title = title,
+                        onDismissRequest = { decor.removeView(view) }
+                    )
+                }
+            }
+        }
+        decor.addView(view)
+    }
+
+    private fun showSiteStyle(activity: MainActivity, controller: AlbumController?) {
+        try {
+            val decor = activity.window.decorView as? ViewGroup ?: return
+            var composeView: ComposeView? = null
+            fun cleanup() {
+                composeView?.let { cv -> decor.removeView(cv) }
+            }
+
+            val sp = PreferenceManager.getDefaultSharedPreferences(activity)
+            composeView = ComposeView(activity).apply {
+                setViewTreeLifecycleOwner(activity)
+                setViewTreeViewModelStoreOwner(activity)
+                setViewTreeSavedStateRegistryOwner(activity)
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+                setContent {
+                    val fontName = sp.getString("sp_app_font", "PETAL") ?: "PETAL"
+                    val styleName = sp.getString("sp_color_style", "TONAL_SPOT") ?: "TONAL_SPOT"
+                    val paletteId = sp.getString("sp_palette_id", com.petal.browser.ui.theme.defaultPaletteId) ?: com.petal.browser.ui.theme.defaultPaletteId
+                    val dynamicColor = sp.getBoolean("useDynamicColor", com.petal.browser.ui.theme.isDynamicColorSupported)
+                    val isAmoled = sp.getBoolean("sp_amoled", false)
+
+                    var activePreset by remember { mutableStateOf(SiteStylePreset.DEFAULT) }
+                    PetalExpressiveTheme(
+                        dynamicColor = dynamicColor,
+                        useAmoled = isAmoled,
+                        appFont = remember(fontName) { AppFont.fromName(fontName) },
+                        colorStyle = remember(styleName) {
+                            try { ColorStyle.valueOf(styleName) } catch (_: Exception) { ColorStyle.TONAL_SPOT }
+                        },
+                        paletteId = paletteId
+                    ) {
+                        PetalSiteStyleSheet(
+                            activePreset = activePreset,
+                            onSelectPreset = { preset ->
+                                activePreset = preset
+                                if (preset.css.isNotEmpty()) {
+                                    evaluateJavascript(controller, """
+                                        (function() {
+                                            var style = document.getElementById('__petal_site_style');
+                                            if (!style) {
+                                                style = document.createElement('style');
+                                                style.id = '__petal_site_style';
+                                                document.head.appendChild(style);
+                                            }
+                                            style.innerHTML = `${preset.css}`;
+                                        })()
+                                    """.trimIndent())
+                                } else {
+                                    evaluateJavascript(controller, "var s = document.getElementById('__petal_site_style'); if (s) s.remove();")
+                                }
+                            },
+                            onDismissRequest = {
+                                cleanup()
+                            }
+                        )
+                    }
+                }
+            }
+            decor.addView(composeView)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun showDevNotes(activity: MainActivity, domain: String) {
+        try {
+            val decor = activity.window.decorView as? ViewGroup ?: return
+            var composeView: ComposeView? = null
+            fun cleanup() {
+                composeView?.let { cv -> decor.removeView(cv) }
+            }
+
+            val sp = PreferenceManager.getDefaultSharedPreferences(activity)
+            composeView = ComposeView(activity).apply {
+                setViewTreeLifecycleOwner(activity)
+                setViewTreeViewModelStoreOwner(activity)
+                setViewTreeSavedStateRegistryOwner(activity)
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+                setContent {
+                    val fontName = sp.getString("sp_app_font", "PETAL") ?: "PETAL"
+                    val styleName = sp.getString("sp_color_style", "TONAL_SPOT") ?: "TONAL_SPOT"
+                    val paletteId = sp.getString("sp_palette_id", com.petal.browser.ui.theme.defaultPaletteId) ?: com.petal.browser.ui.theme.defaultPaletteId
+                    val dynamicColor = sp.getBoolean("useDynamicColor", com.petal.browser.ui.theme.isDynamicColorSupported)
+                    val isAmoled = sp.getBoolean("sp_amoled", false)
+
+                    PetalExpressiveTheme(
+                        dynamicColor = dynamicColor,
+                        useAmoled = isAmoled,
+                        appFont = remember(fontName) { AppFont.fromName(fontName) },
+                        colorStyle = remember(styleName) {
+                            try { ColorStyle.valueOf(styleName) } catch (_: Exception) { ColorStyle.TONAL_SPOT }
+                        },
+                        paletteId = paletteId
+                    ) {
+                        PetalDevNotesSheet(
+                            domain = domain,
+                            onDismissRequest = {
+                                cleanup()
+                            }
+                        )
+                    }
+                }
+            }
+            decor.addView(composeView)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun showAutoScroll(activity: MainActivity, controller: AlbumController?) {
+        val decor = activity.window.decorView as? ViewGroup ?: return
+        var view: ComposeView? = null
+        view = ComposeView(activity).apply {
+            setViewTreeLifecycleOwner(activity)
+            setViewTreeViewModelStoreOwner(activity)
+            setViewTreeSavedStateRegistryOwner(activity)
+            setContent {
+                PetalExpressiveTheme {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        PetalAutoScrollOverlay(
+                            onScrollStep = { step ->
+                                evaluateJavascript(controller, "window.scrollBy({ top: $step, behavior: 'smooth' });")
+                            },
+                            onClose = { decor.removeView(view) }
+                        )
+                    }
+                }
+            }
+        }
+        decor.addView(view)
+    }
+
+    private fun showImageGrabber(activity: MainActivity, controller: AlbumController?) {
+        evaluateJavascript(controller, """
+            (function() {
+                var urls = new Set();
+                document.querySelectorAll('img[src]').forEach(function(i) {
+                    if (i.src && i.src.startsWith('http')) urls.add(i.src);
+                });
+                return JSON.stringify(Array.from(urls).slice(0, 60));
+            })()
+        """.trimIndent()) { result ->
+            val type = object : TypeToken<List<String>>() {}.type
+            val images: List<String> = try { Gson().fromJson(result, type) } catch (_: Exception) { emptyList() }
+            try {
+                val decor = activity.window.decorView as? ViewGroup ?: return@evaluateJavascript
+                var composeView: ComposeView? = null
+                fun cleanup() {
+                    composeView?.let { cv -> decor.removeView(cv) }
+                }
+
+                val sp = PreferenceManager.getDefaultSharedPreferences(activity)
+                composeView = ComposeView(activity).apply {
+                    setViewTreeLifecycleOwner(activity)
+                    setViewTreeViewModelStoreOwner(activity)
+                    setViewTreeSavedStateRegistryOwner(activity)
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+                    setContent {
+                        val fontName = sp.getString("sp_app_font", "PETAL") ?: "PETAL"
+                        val styleName = sp.getString("sp_color_style", "TONAL_SPOT") ?: "TONAL_SPOT"
+                        val paletteId = sp.getString("sp_palette_id", com.petal.browser.ui.theme.defaultPaletteId) ?: com.petal.browser.ui.theme.defaultPaletteId
+                        val dynamicColor = sp.getBoolean("useDynamicColor", com.petal.browser.ui.theme.isDynamicColorSupported)
+                        val isAmoled = sp.getBoolean("sp_amoled", false)
+
+                        PetalExpressiveTheme(
+                            dynamicColor = dynamicColor,
+                            useAmoled = isAmoled,
+                            appFont = remember(fontName) { AppFont.fromName(fontName) },
+                            colorStyle = remember(styleName) {
+                                try { ColorStyle.valueOf(styleName) } catch (_: Exception) { ColorStyle.TONAL_SPOT }
+                            },
+                            paletteId = paletteId
+                        ) {
+                            PetalImageGrabberSheet(
+                                images = images,
+                                onDownloadImage = { imgUrl ->
+                                    com.petal.browser.compose.downloads.PetalFetchDownloadBridge.enqueueMediaDownload(
+                                        context = activity,
+                                        url = imgUrl,
+                                        fileName = imgUrl.substringAfterLast("/").substringBefore("?").ifEmpty { "image.jpg" }
+                                    )
+                                    PetalToast.show(activity, activity.getString(R.string.ui_downloading_image))
+                                },
+                                onDownloadAll = {
+                                    images.forEach { imgUrl ->
+                                        com.petal.browser.compose.downloads.PetalFetchDownloadBridge.enqueueMediaDownload(
+                                            context = activity,
+                                            url = imgUrl,
+                                            fileName = imgUrl.substringAfterLast("/").substringBefore("?").ifEmpty { "image.jpg" }
+                                        )
+                                    }
+                                    PetalToast.show(activity, activity.getString(R.string.ui_downloading_n_images, images.size))
+                                    cleanup()
+                                },
+                                onDismissRequest = {
+                                    cleanup()
+                                }
+                            )
+                        }
+                    }
+                }
+                decor.addView(composeView)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun showNetworkInspector(activity: MainActivity, url: String) {
+        val decor = activity.window.decorView as? ViewGroup ?: return
+        var view: ComposeView? = null
+        view = ComposeView(activity).apply {
+            setViewTreeLifecycleOwner(activity)
+            setViewTreeViewModelStoreOwner(activity)
+            setViewTreeSavedStateRegistryOwner(activity)
+            setContent {
+                PetalExpressiveTheme {
+                    PetalNetworkInspectorDialog(
+                        url = url,
+                        onDismissRequest = { decor.removeView(view) }
+                    )
+                }
+            }
+        }
+        decor.addView(view)
+    }
+
+    private fun showSpoofIdentity(activity: MainActivity, controller: AlbumController?) {
+        val decor = activity.window.decorView as? ViewGroup ?: return
+        var view: ComposeView? = null
+        view = ComposeView(activity).apply {
+            setViewTreeLifecycleOwner(activity)
+            setViewTreeViewModelStoreOwner(activity)
+            setViewTreeSavedStateRegistryOwner(activity)
+            setContent {
+                PetalExpressiveTheme {
+                    PetalSpoofIdentityDialog(
+                        currentUa = null,
+                        onSelectIdentity = { preset ->
+                            if (preset.userAgent != null) {
+                                setUserAgent(controller, preset.userAgent)
+                                PetalToast.show(activity, activity.getString(R.string.ui_user_agent_switched, preset.title))
+                            } else {
+                                setUserAgent(controller, null)
+                                PetalToast.show(activity, activity.getString(R.string.ui_user_agent_restored))
+                            }
+                            reloadTab(controller)
+                        },
+                        onDismissRequest = { decor.removeView(view) }
+                    )
+                }
+            }
+        }
+        decor.addView(view)
+    }
+
+}

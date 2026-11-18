@@ -1,0 +1,27 @@
+# built application files
+# files for the dex VM
+# Java class files
+# generated files
+gen/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Eclipse project files
+# Android Studio
+.idea/
+.gradle/
+*.iml
+/app/debug/
+/app/release/
+/app/build/
+/build/
+scratch/
+*.zip
+app/release.keystore
+.gsd/
+.agents/
+brag-output/
+
+__pycache__/
+*.pyc
