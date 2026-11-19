@@ -343,8 +343,7 @@ class PetalBrowserViewModel @Inject constructor(
         keepSwitcherOpen: Boolean = false,
         parentId: String? = null
     ): String {
-        @Suppress("NAME_SHADOWING")
-        val private = false
+        val isPrivateMode = false
         val tabId = java.util.UUID.randomUUID().toString()
         if (!groupId.isNullOrBlank() || !parentId.isNullOrBlank()) {
             PetalTabMetadataStore.put(
@@ -358,7 +357,7 @@ class PetalBrowserViewModel @Inject constructor(
             )
         }
         val targetUrl = if (url.isNullOrBlank() || url == "about:home") {
-            if (private) "about:home" else PetalBrowserUtils.getEffectiveHomepageUrl(context)
+            PetalBrowserUtils.getEffectiveHomepageUrl(context)
         } else {
             url
         }
@@ -370,7 +369,7 @@ class PetalBrowserViewModel @Inject constructor(
                 tabId = tabId,
                 url = formattedUrl,
                 title = tabTitle,
-                isIncognito = private,
+                isIncognito = isPrivateMode,
                 select = true
             )
         } else {
@@ -380,11 +379,8 @@ class PetalBrowserViewModel @Inject constructor(
                 tabId = tabId,
                 url = formattedUrl,
                 title = tabTitle,
-                isIncognito = private
+                isIncognito = isPrivateMode
             )
-        }
-        if (private) {
-            PetalIncognitoSessionManager.syncIncognitoState(context)
         }
         // keepSwitcherOpen: a replacement tab created because the user closed the LAST tab from the
         // tab manager must not dismiss the manager (that flashed the home page over it).
