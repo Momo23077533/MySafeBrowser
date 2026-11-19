@@ -27,9 +27,16 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleGithubDebug --stacktrace
 
-      - name: Upload SafeBrowser APK
+      - name: Upload 64-bit APK (arm64-v8a)
         uses: actions/upload-artifact@v4
         with:
-          name: SafeBrowser-APK
-          path: app/build/outputs/apk/**/*.apk
+          name: SafeBrowser-64bit-arm64
+          path: app/build/outputs/apk/github/debug/*arm64-v8a*.apk
+          if-no-files-found: error
+
+      - name: Upload 32-bit APK (armeabi-v7a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SafeBrowser-32bit-armeabi-v7a
+          path: app/build/outputs/apk/github/debug/*armeabi-v7a*.apk
           if-no-files-found: error
