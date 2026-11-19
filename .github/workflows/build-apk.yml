@@ -25,7 +25,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleGithubDebug --stacktrace
 
       - name: Upload SafeBrowser APK
         uses: actions/upload-artifact@v4
