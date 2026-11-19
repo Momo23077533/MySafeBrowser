@@ -376,11 +376,8 @@ class ColdTurkeyFilter private constructor(
             )
         }
 
-        /**
-         * Host-only wildcards (e.g. "proxy.*", "croxy.*", "fast*vpn*") belong to Tier 3.
-         * Keyword/search/path wildcards (e.g. "*keyword*", "*/search/?text=*", "translate.google.*/*&u=*")
-         * belong to Tier 1 so they are never overridden by broad domain allowlists.
-         */
+        // Host-only wildcards (e.g. "proxy.*", "croxy.*", "fast*vpn*") belong to Tier 3.
+        // Keyword/search/path wildcards belong to Tier 1 so they are never overridden by broad domain allowlists.
         private fun isHostOnlyWildcard(lowerRule: String): Boolean {
             if (lowerRule.startsWith("*")) return false
             if (lowerRule.contains("/") || lowerRule.contains("?") || lowerRule.contains(":")) return false

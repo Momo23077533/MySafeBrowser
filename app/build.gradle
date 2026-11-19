@@ -219,6 +219,7 @@ dependencies {
     implementation 'androidx.preference:preference:1.2.1'
     githubImplementation 'com.google.android.gms:play-services-ads:25.5.0'
     playImplementation 'com.google.android.gms:play-services-ads:25.5.0'
+    fdroidImplementation 'androidx.work:work-runtime-ktx:2.10.0'
     implementation 'androidx.fragment:fragment:1.9.1'
     implementation 'androidx.media:media:1.8.0'
     implementation 'androidx.webkit:webkit:1.18.0'
